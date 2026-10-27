@@ -13,7 +13,7 @@ event_id = uid()
 with SessionLocal() as db:
     db.add(OutboxEvent(id=event_id,event_type="booking.confirmed",
                        aggregate_id="mysql-concurrency-test",
-                       payload=json.dumps({"booking_id":"mysql-concurrency-test",
+                       payload=json.dumps({"booking_id":"mysql-concurrency-test", "request_id":"ci-test-request",
                            "policy":"INTERNAL_REVIEW_ONLY"})))
     db.commit()
 
