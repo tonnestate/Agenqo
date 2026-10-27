@@ -35,6 +35,8 @@ jobs:
           python -c 'from agenqo.database import engine; from sqlalchemy import inspect; assert {"companies","company_memberships","company_observations","bookings","request_economic_events","alembic_version"} <= set(inspect(engine).get_table_names())'
       - name: Concurrent real MySQL booking approval
         run: python tests/mysql_booking_race.py
+      - name: Concurrent real MySQL n8n outbox claim
+        run: python tests/mysql_n8n_claim_race.py
   quote-form:
     runs-on: ubuntu-latest
     defaults:

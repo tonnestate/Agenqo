@@ -92,3 +92,15 @@ Lokale Tests: `pip install -e ".[test]"` und `pytest`. Für den echten API-Start
 - `/provider`: Anmelden mit Authorization Code + PKCE, Firmen suchen und übernehmen, Mitgliedschaften und Profilvorschläge bearbeiten, Einladungen und Angebote anzeigen und Buchungen bestätigen.
 - Browser-Login bleibt gesperrt, bis ein bestehender/extern bereitgestellter OIDC-Provider mit `AGENQO_OIDC_CLIENT_ID`, Issuer, JWKS und passender API-Audience konfiguriert ist. Es wird kein neuer Identitätsserver gestartet.
 - InnoDB-Zeilensperren sichern konkurrierende Käuferfreigaben, Anbieterangebote und Bestätigungen. GitHub Actions führt einen echten MySQL-Konkurrenztest aus.
+
+
+### n8n-Orchestrierung v0.7: zuverlässige MySQL-Outbox
+
+- [Betriebs- und Integrationsdokumentation](docs/N8N_ORCHESTRATION_V07.md)
+- [Importierbarer, standardmäßig deaktivierter n8n-Workflow](n8n/workflows/agenqo_internal_review_outbox.json).
+- **Verwendet die bestehende n8n-Installation**, keinen weiteren n8n-/Datenbankserver.
+- `invitation.review_requested`, `quote.review_requested`, `booking.confirmed` werden **atomar in MySQL** mit dem Geschäftszustand gespeichert.
+- n8n kann über einen gesonderten, nur serverseitig konfigurierten Header-Schlüssel kontrolliert Ereignisse übernehmen und quittieren. Vorgänge erhalten 120-Sekunden-Leases, Wiederholungssteuerung und Dead-Letter-Status.
+- Bei bestätigter Verarbeitung entsteht eine **interne** Aufgabe in `automation_review_tasks`. Es gibt **keinen automatischen E-Mail-, SMS-, WhatsApp-, Zahlungs- oder Anbieterkommunikationsversand**.
+- Der Admin kann unter `/v1/admin/automation/status` und `/v1/admin/automation/review-tasks` Zustand und offene Aufgaben sehen.
+- Es wurden keine produktiven n8n-Credentials eingerichtet oder bestehende n8n-Workflows modifiziert.

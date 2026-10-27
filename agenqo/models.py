@@ -105,6 +105,23 @@ class OutboxEvent(Base):
     aggregate_id = Column(String(36), nullable=False)
     payload = Column(Text, nullable=False)
     status = Column(String(32), nullable=False, default="PENDING")
+    attempt_count = Column(Integer, nullable=False, default=0)
+    available_at = Column(DateTime(timezone=True))
+    lease_until = Column(DateTime(timezone=True))
+    lease_token_hash = Column(String(64))
+    completed_at = Column(DateTime(timezone=True))
+    n8n_execution_ref = Column(String(128))
+    last_failure_code = Column(String(48))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+class AutomationReviewTask(Base):
+    """Internal human review handoff. NOT an external email or provider dispatch."""
+    __tablename__ = "automation_review_tasks"
+    id = Column(String(36), primary_key=True, default=uid)
+    outbox_event_id = Column(String(36), ForeignKey("outbox_events.id"), nullable=False, unique=True)
+    event_type = Column(String(80), nullable=False)
+    aggregate_id = Column(String(36), nullable=False)
+    status = Column(String(32), nullable=False, default="OPEN")
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 class CompanyObservation(Base):

@@ -89,3 +89,10 @@ RequestEconomicEvent führt immutable, idempotente, per RFQ zugeordnete COST-/RE
 **Aktueller Stand:** Das Deployment verwendet vorhandenes **MySQL** statt PostgreSQL; CI testet die Alembic-Migration auf einem temporären MySQL-Service. Eingebettetes **DuckDB** ist optional für anonymisierte analytische Berichte. Die alten Abschnitte oben beschreiben den damaligen Prototypen und sind hinsichtlich der Datenbank überholt.
 
 Details: docs/DATENBANK_DONOREN_MYSQL_DUCKDB.md.
+
+
+## Implementierung v0.7: n8n-Brücke (intern, gesichert)
+
+Agenqo verfügt jetzt über eine MySQL-Outbox mit Leasing, idempotenter Quittierung, Retry/Backoff, Dead-Letter und explizitem manuellen Wiederanlauf. Geschäftlich zulässige Ereignisse werden atomar mit den relevanten Geschäftszuständen persistiert. Das importierbare Workflow-JSON ist absichtlich INAKTIV und erstellt bei erfolgreicher Verarbeitung ausschließlich interne Review-Aufgaben. Es gibt noch keine tatsächliche externe Zustellung, rechtlich freigegebene Marketingkontakte oder Verbindung zu einer produktiven n8n-Instanz.
+
+Hinweise zur Inbetriebnahme und Sicherheitsgrenzen in docs/N8N_ORCHESTRATION_V07.md.

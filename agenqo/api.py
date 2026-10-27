@@ -223,6 +223,11 @@ def invite_provider(request_id: str, payload: InvitationIn, db: Session = Depend
     # The status deliberately remains READY; no actual outbound delivery is implemented.
     audit(db, "INVITATION_READY", invitation.id, "admin",
           {"request_id": request_id, "company_id": company.id})
+    # No email authorization is implied by an invitation record.
+    db.add(OutboxEvent(event_type="invitation.review_requested", aggregate_id=invitation.id,
+        payload=json.dumps({"invitation_id": invitation.id, "request_id": request_id,
+                            "company_id": company.id, "policy": "INTERNAL_REVIEW_ONLY"},
+                           sort_keys=True)))
     db.commit()
     return {"invitation_id": invitation.id, "status": invitation.status,
             "provider_token": token, "expires_at": aware(invitation.expires_at).isoformat(),
@@ -263,6 +268,9 @@ def submit_quote_for_invitation(invitation: Invitation, payload: QuoteIn, db: Se
         request.status = move("request", request.status, "COLLECTING", "provider")
     audit(db, "QUOTE_SUBMITTED", quote.id, "provider",
           {"request_id": request.id, "provider_binding_declaration": payload.binding_declared_by_provider})
+    db.add(OutboxEvent(event_type="quote.review_requested", aggregate_id=quote.id,
+        payload=json.dumps({"quote_id": quote.id, "request_id": request.id,
+                            "policy": "INTERNAL_REVIEW_ONLY"}, sort_keys=True)))
     db.commit()
     return {"quote_id": quote.id, "status": quote.status,
             "gross_cents": total, "fingerprint": quote.fingerprint}
@@ -369,7 +377,8 @@ def confirm_booking_for_invitation(invitation: Invitation, booking_id: str, db: 
     request.status = move("request", request.status, "BOOKED", "provider")
     audit(db, "BOOKING_CONFIRMED", booking.id, "provider")
     db.add(OutboxEvent(event_type="booking.confirmed", aggregate_id=booking.id,
-        payload=json.dumps({"booking_id":booking.id,"request_id":request.id},sort_keys=True)))
+        payload=json.dumps({"booking_id":booking.id,"request_id":request.id,
+                            "policy":"INTERNAL_REVIEW_ONLY"},sort_keys=True)))
     db.commit()
     return {"booking_id": booking.id, "status": booking.status, "idempotent_replay": False}
 
@@ -772,3 +781,7 @@ def get_liquidity_analytics(db: Session = Depends(get_db)):
 # Register the OIDC-authenticated provider portal after core handlers are defined.
 from .provider_portal import router as provider_portal_router
 app.include_router(provider_portal_router)
+
+# n8n is the operator-owned orchestration layer, not a second business state machine.
+from .n8n_bridge import router as n8n_bridge_router
+app.include_router(n8n_bridge_router)
