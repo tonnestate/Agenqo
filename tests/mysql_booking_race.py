@@ -38,7 +38,12 @@ with SessionLocal() as db:
         status="BINDING",fingerprint="0"*64)
     quote.fingerprint=quote_hash(quote)
     company_id, request_id, quote_id, fingerprint = (company.id,request.id,quote.id,quote.fingerprint)
-    db.add_all([company,request,invitation,quote])
+    # SQLAlchemy has no ORM relationships here: insert parents explicitly before FK children.
+    db.add_all([company, request])
+    db.flush()
+    db.add(invitation)
+    db.flush()
+    db.add(quote)
     db.commit()
 
 start = Barrier(2)
