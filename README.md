@@ -68,3 +68,7 @@ Erforderliche Server-Konfiguration: `AGENQO_OIDC_ISSUER`, `AGENQO_OIDC_AUDIENCE`
 `alembic upgrade head` erzeugt das gesamte Agenqo-Datenbankschema auf einer **frischen** Datenbank. Für bestehende, durch `create_all` erzeugte lokale DBs ist vor `alembic stamp` eine individuelle Schema-/Versionsprüfung erforderlich. Die Docker-Compose-Entwicklungsumgebung führt Migrationen vor dem API-Start aus. Für produktive Deployments sollte die Migration separat unter Change Control laufen.
 
 Weitere Details: [Provider-Sicherheits-/Migrationsstand](docs/IDENTITY_MIGRATION_V03.md).
+
+### Erfasste Wirtschaftlichkeit je Anfrage (v0.4)
+
+Das neue [RFQ-Kosten- und Erlösjournal](docs/UNIT_ECONOMICS_V04.md) erfasst variable Kosten **auch bei erfolglosen Anfragen** und tatsächlich belegte Zahlungseingänge. Eine fällige oder erwartete Vermittlungsprovision wird nicht automatisch als bezahlter Umsatz gezählt. Die internen Pilot-APIs liefern eine Kosten-/Erlösübersicht pro Anfrage und aggregiert über den gesamten Pilot. Die Angaben sind **keine** geprüfte Buchhaltung, sondern bislang manuell erfasste operative Messdaten.

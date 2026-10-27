@@ -1,10 +1,11 @@
 """Guarded Agenqo concierge prototype API; no external delivery or payment processing."""
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import hmac
 import json
 import os
+from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from .auth import require_provider_identity
@@ -19,7 +20,7 @@ from .domain import (RuleViolation, cents, commission_cents, gross_cents, move,
                      new_token, offer_fingerprint, require_valid_offer, token_digest, token_matches)
 from .models import (Base, Company, ServiceRequest, Invitation, Quote, Booking,
                      CommissionEvent, AuditEvent, OutboxEvent,
-                     CompanyObservation, CompanyGoldenField, CompanyOwnershipClaim, CompanyMembership)
+                     CompanyObservation, CompanyGoldenField, CompanyOwnershipClaim, CompanyMembership, RequestEconomicEvent)
 from .company_records import (SOURCES, LICENSE_STATES, normalized_field,
                               observation_fingerprint, publishable)
 from .service_catalog import (public_schema, quote_form_schema, validate_attributes)
@@ -660,3 +661,83 @@ def provider_propose_company_update(company_id: str,
     db.commit()
     return {"observation_id":row.id,"review_state":row.review_state,
             "idempotent_replay":False,"published":False}
+
+
+# ----- RFQ-level unit economics, including failed inquiries -----
+
+COST_CATEGORIES = {"ACQUISITION", "MODEL", "COMMUNICATION", "SUPPORT",
+                   "PROVIDER_ONBOARDING", "REFUND", "OTHER"}
+RECEIPT_CATEGORIES = {"PROVIDER_COMMISSION", "BUYER_FEE", "OTHER"}
+
+class EconomicEventIn(BaseModel):
+    event_key: str = Field(min_length=6, max_length=128, pattern=r"^[a-zA-Z0-9_.:-]+$")
+    direction: Literal["COST", "RECEIPT"]
+    category: str
+    amount_eur: Decimal = Field(gt=0)
+    evidence_reference: str = Field(min_length=8, max_length=1024)
+
+def _economic_totals(db: Session, request_id: str) -> dict:
+    events=db.query(RequestEconomicEvent).filter_by(request_id=request_id).all()
+    costs=sum(e.amount_cents for e in events if e.direction=="COST")
+    receipts=sum(e.amount_cents for e in events if e.direction=="RECEIPT")
+    return {"recorded_cost_cents":costs,"recorded_receipts_cents":receipts,
+            "recorded_contribution_cents":receipts-costs, "economic_event_count":len(events)}
+
+@app.post("/v1/admin/requests/{request_id}/economic-events",
+          dependencies=[Depends(admin)], status_code=201)
+def record_economic_event(request_id: str, payload: EconomicEventIn,
+                          db: Session = Depends(get_db)):
+    request_by_id(db,request_id)
+    allowed=COST_CATEGORIES if payload.direction=="COST" else RECEIPT_CATEGORIES
+    if payload.category not in allowed:
+        raise HTTPException(422, "invalid_economic_category")
+    amount=cents(payload.amount_eur)
+    if amount <= 0:
+        raise HTTPException(422,"economic_amount_too_small")
+    existing=db.query(RequestEconomicEvent).filter_by(
+        request_id=request_id,event_key=payload.event_key).one_or_none()
+    if existing:
+        if (existing.direction != payload.direction or existing.category != payload.category
+            or existing.amount_cents != amount or
+                existing.evidence_reference != payload.evidence_reference):
+            raise RuleViolation("economic_event_key_payload_conflict")
+        return {"economic_event_id":existing.id,"idempotent_replay":True}
+    row=RequestEconomicEvent(request_id=request_id,event_key=payload.event_key,
+        direction=payload.direction,category=payload.category,amount_cents=amount,
+        evidence_reference=payload.evidence_reference)
+    db.add(row)
+    db.flush()
+    audit(db,"RFQ_ECONOMIC_EVENT_RECORDED",row.id,"admin",{
+        "request_id":request_id,"direction":payload.direction,"amount_cents":amount})
+    db.commit()
+    return {"economic_event_id":row.id,"idempotent_replay":False}
+
+@app.get("/v1/admin/requests/{request_id}/economics",dependencies=[Depends(admin)])
+def request_economics(request_id: str,db: Session = Depends(get_db)):
+    request=request_by_id(db,request_id)
+    booking=db.query(Booking).filter_by(request_id=request_id).one_or_none()
+    commission=db.query(CommissionEvent).filter_by(booking_id=booking.id).one_or_none() if booking else None
+    # Eligible commission is NOT recorded receipt. Payment must be separately evidenced.
+    return {"request_id":request.id,"request_status":request.status,
+            "booking_status":booking.status if booking else None,
+            "commission_eligible_cents":commission.net_cents if commission else 0,
+            **_economic_totals(db,request_id)}
+
+@app.get("/v1/admin/economics/summary",dependencies=[Depends(admin)])
+def economics_summary(db: Session = Depends(get_db)):
+    requests=db.query(ServiceRequest).all()
+    totals=[_economic_totals(db,r.id) for r in requests]
+    n=len(requests)
+    costs=sum(r["recorded_cost_cents"] for r in totals)
+    receipts=sum(r["recorded_receipts_cents"] for r in totals)
+    complete=sum(1 for r in requests if r.status=="COMPLETED")
+    return {"total_requests":n,"completed_requests":complete,
+            "booked_or_completed_requests":sum(
+               1 for r in requests if r.status in {"BOOKED","COMPLETED","DISPUTED"}),
+            "recorded_cost_cents":costs,"recorded_receipts_cents":receipts,
+            "recorded_contribution_cents":receipts-costs,
+            "recorded_contribution_per_request_cents":int(
+                (Decimal(receipts-costs)/Decimal(n)).quantize(
+                    Decimal("1"), rounding=ROUND_HALF_UP)) if n else None,
+            "economic_event_count":sum(t["economic_event_count"] for t in totals),
+            "warning":"Recorded events are operator-entered; not audited accounting or total company profit."}

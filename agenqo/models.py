@@ -156,3 +156,16 @@ class CompanyMembership(Base):
     active = Column(Boolean, nullable=False, default=True)
     verified_claim_id = Column(String(36), ForeignKey("company_ownership_claims.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+class RequestEconomicEvent(Base):
+    """Append-only operator-recorded costs and confirmed cash receipts per customer RFQ."""
+    __tablename__ = "request_economic_events"
+    __table_args__ = (UniqueConstraint("request_id", "event_key", name="uq_request_economic_event"),)
+    id = Column(String(36), primary_key=True, default=uid)
+    request_id = Column(String(36), ForeignKey("service_requests.id"), nullable=False, index=True)
+    event_key = Column(String(128), nullable=False)
+    direction = Column(String(10), nullable=False)  # COST or RECEIPT
+    category = Column(String(40), nullable=False)
+    amount_cents = Column(Integer, nullable=False)
+    evidence_reference = Column(String(1024), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

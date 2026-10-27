@@ -76,3 +76,9 @@ Technische Einzelheiten: docs/DONOREN_ADOPTION_2026-10-27.md.
 - CI testet Anspruch/Abweisung, fremde Firmen, fehlerhafte JWTs, SQLite-Migrationen und frisches PostgreSQL-Schema.
 
 **Nicht vorhanden:** Echtbetrieb eines OIDC-Providers, Provider-Login-UI, Passwortwiederherstellung, Benutzer-Management, automatische Firmenverifikation, vollständige Delegation von Mitarbeitern/Agenten, IP-/Token-Rate-Limits, Betrieb/Monitoring, produktive Vertragsprüfung. Nicht öffentlich deployen.
+
+## Ergänzung v0.4 – Unit Economics
+
+RequestEconomicEvent führt immutable, idempotente, per RFQ zugeordnete COST-/RECEIPT-Ereignisse. Zwei Admin-Reporting-Endpunkte berechnen erfasste Kosten, erhaltene Beträge und einen vorläufigen Deckungsbeitrag, einschließlich nicht erfolgreich abgeschlossener Anfragen. Eine nur provisionsfähige Forderung wird getrennt ausgewiesen, nicht als Zahlung verbucht.
+
+**Weiter offen:** PSP-/Bank-Reconciliation, echte Buchhaltung, Kostenautomatisierung, Rückerstattungskorrekturen, Fixkosten, Premium-Abos und erhobene reale Pilotdaten. Details: docs/UNIT_ECONOMICS_V04.md.
