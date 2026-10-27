@@ -37,6 +37,9 @@ with SessionLocal() as db:
         binding_declared_by_provider=True,service_attributes_json="{}",
         status="BINDING",fingerprint="0"*64)
     quote.fingerprint=quote_hash(quote)
+    hash_fields = ("id", "revision", "description", "conditions", "net_cents",
+                   "gross_cents", "vat_percent", "expires_at", "service_attributes_json")
+    pre_insert_fields = {key:str(getattr(quote,key)) for key in hash_fields}
     company_id, request_id, quote_id, fingerprint = (company.id,request.id,quote.id,quote.fingerprint)
     # SQLAlchemy has no ORM relationships here: insert parents explicitly before FK children.
     db.add_all([company, request])
@@ -61,7 +64,9 @@ with SessionLocal() as db:
             "attributes":stored.service_attributes_json,
             "description":stored.description,
             "net":stored.net_cents,
-            "gross":stored.gross_cents
+            "gross":stored.gross_cents,
+            "before":pre_insert_fields,
+            "after":{key:str(getattr(stored,key)) for key in pre_insert_fields}
         })
 
 start = Barrier(2)
