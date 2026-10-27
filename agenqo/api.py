@@ -7,6 +7,9 @@ import json
 import os
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -14,7 +17,11 @@ from .database import engine, get_db
 from .domain import (RuleViolation, cents, commission_cents, gross_cents, move,
                      new_token, offer_fingerprint, require_valid_offer, token_digest, token_matches)
 from .models import (Base, Company, ServiceRequest, Invitation, Quote, Booking,
-                     CommissionEvent, AuditEvent)
+                     CommissionEvent, AuditEvent, OutboxEvent,
+                     CompanyObservation, CompanyGoldenField, CompanyOwnershipClaim)
+from .company_records import (SOURCES, LICENSE_STATES, normalized_field,
+                              observation_fingerprint, publishable)
+from .service_catalog import (public_schema, quote_form_schema, validate_attributes)
 
 
 @asynccontextmanager
@@ -25,7 +32,16 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Agenqo Concierge Core", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Agenqo Concierge Core", version="0.2.0", lifespan=lifespan)
+_WEB_DIST = Path(__file__).resolve().parent.parent / "web_dist"
+if (_WEB_DIST / "index.html").is_file():
+    app.mount("/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="quote-form-assets")
+    @app.get("/quote", include_in_schema=False)
+    def quote_page():
+        return FileResponse(_WEB_DIST / "index.html", headers={
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+            "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; object-src 'none'"})
+
 
 
 @app.exception_handler(RuleViolation)
@@ -62,6 +78,12 @@ def invitation_by_token(db: Session, token: str) -> Invitation:
     return invitation
 
 
+def validated_attributes(category: str, attributes: dict | None) -> dict:
+    try:
+        return validate_attributes(category, attributes)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
 def request_by_id(db: Session, request_id: str) -> ServiceRequest:
     request = db.get(ServiceRequest, request_id)
     if request is None:
@@ -80,7 +102,8 @@ def quote_hash(q: Quote) -> str:
     return offer_fingerprint(quote_id=q.id, revision=q.revision,
         description=q.description, conditions=q.conditions, net_cents=q.net_cents,
         gross_cents_value=q.gross_cents, vat_percent=f"{q.vat_percent:.2f}",
-        expires_at=aware(q.expires_at))
+        expires_at=aware(q.expires_at),
+        service_attributes=json.loads(q.service_attributes_json or "{}"))
 
 
 class CompanyIn(BaseModel):
@@ -98,6 +121,7 @@ class RequestIn(BaseModel):
     postal_code: str = Field(pattern=r"^[0-9]{5}$")
     category: str = Field(min_length=3, max_length=80)
     requirements: str = Field(min_length=10, max_length=20000)
+    structured_requirements: dict | None = None
 
 
 class InvitationIn(BaseModel):
@@ -111,6 +135,7 @@ class QuoteIn(BaseModel):
     vat_percent: Decimal = Field(default=Decimal("19.00"), ge=0, le=100)
     expires_at: datetime
     binding_declared_by_provider: bool = False
+    service_attributes: dict | None = None
 
 
 class ApprovalIn(BaseModel):
@@ -144,7 +169,12 @@ def create_company(payload: CompanyIn, db: Session = Depends(get_db)):
 @app.post("/v1/admin/requests", dependencies=[Depends(admin)], status_code=201)
 def create_request(payload: RequestIn, db: Session = Depends(get_db)):
     token = new_token()
-    request = ServiceRequest(**payload.model_dump(), customer_token_hash=token_digest(token))
+    attrs = validated_attributes(payload.category, payload.structured_requirements)
+    request = ServiceRequest(customer_email=payload.customer_email,
+        postal_code=payload.postal_code, category=payload.category,
+        requirements=payload.requirements,
+        structured_requirements_json=json.dumps(attrs, ensure_ascii=False, sort_keys=True),
+        customer_token_hash=token_digest(token))
     db.add(request)
     db.flush()
     audit(db, "REQUEST_CREATED", request.id, "admin")
@@ -192,7 +222,6 @@ def invite_provider(request_id: str, payload: InvitationIn, db: Session = Depend
             "external_delivery": False}
 
 
-@app.post("/v1/provider/invitations/{token}/quotes", status_code=201)
 def submit_quote(token: str, payload: QuoteIn, db: Session = Depends(get_db)):
     invitation = invitation_by_token(db, token)
     if invitation.status != "READY":
@@ -200,13 +229,15 @@ def submit_quote(token: str, payload: QuoteIn, db: Session = Depends(get_db)):
     if payload.expires_at.tzinfo is None or aware(payload.expires_at) <= now():
         raise RuleViolation("offer_expiry_must_be_future_and_timezone_aware")
     request = request_by_id(db, invitation.request_id)
+    attrs = validated_attributes(request.category, payload.service_attributes)
     price = cents(payload.price_net_eur)
     total = gross_cents(price, payload.vat_percent)
     quote = Quote(invitation_id=invitation.id, revision=1, description=payload.description,
                   conditions=payload.conditions, net_cents=price,
                   gross_cents=total, vat_percent=payload.vat_percent,
                   expires_at=payload.expires_at.astimezone(timezone.utc),
-                  binding_declared_by_provider=payload.binding_declared_by_provider)
+                  binding_declared_by_provider=payload.binding_declared_by_provider,
+                  service_attributes_json=json.dumps(attrs, ensure_ascii=False, sort_keys=True))
     # Materialize identifier and content hash before the NOT NULL database insert.
     from .models import uid
     quote.id = uid()
@@ -300,7 +331,6 @@ def approve_offer(request_id: str, payload: ApprovalIn,
     return {"booking_id": booking.id, "status": booking.status, "idempotent_replay": False}
 
 
-@app.post("/v1/provider/invitations/{token}/bookings/{booking_id}/confirm")
 def confirm_booking(token: str, booking_id: str, db: Session = Depends(get_db)):
     invitation = invitation_by_token(db, token)
     booking = db.get(Booking, booking_id)
@@ -319,6 +349,8 @@ def confirm_booking(token: str, booking_id: str, db: Session = Depends(get_db)):
     request = request_by_id(db, booking.request_id)
     request.status = move("request", request.status, "BOOKED", "provider")
     audit(db, "BOOKING_CONFIRMED", booking.id, "provider")
+    db.add(OutboxEvent(event_type="booking.confirmed", aggregate_id=booking.id,
+        payload=json.dumps({"booking_id":booking.id,"request_id":request.id},sort_keys=True)))
     db.commit()
     return {"booking_id": booking.id, "status": booking.status, "idempotent_replay": False}
 
@@ -357,3 +389,172 @@ def admin_request(request_id: str, db: Session = Depends(get_db)):
     return {"request_id": request.id, "status": request.status,
             "invitations": db.query(Invitation).filter_by(request_id=request_id).count(),
             "booked": db.query(Booking).filter_by(request_id=request_id).count() > 0}
+
+
+# ----- Donor adapters: JSON Schema, Golden Record provenance and ownership -----
+
+class ObservationIn(BaseModel):
+    field_name: str
+    value: str
+    source_kind: str
+    source_ref: str = Field(min_length=8, max_length=2048)
+    license_state: str = "UNKNOWN"
+
+class OwnershipClaimIn(BaseModel):
+    claimant_email: str = Field(min_length=5, max_length=255)
+    proof_reference: str = Field(min_length=8, max_length=1024)
+
+class OwnershipReviewIn(BaseModel):
+    approved: bool
+    reviewer_reference: str = Field(min_length=5, max_length=255)
+
+@app.get("/v1/service-schemas/{category}")
+def get_service_schema(category: str):
+    try:
+        return public_schema(category)
+    except ValueError:
+        raise HTTPException(404, "service_category_not_activated")
+
+@app.get("/v1/quote-form-schema")
+def get_quote_form_schema():
+    return quote_form_schema()
+
+@app.get("/v1/provider/invitation")
+def provider_invitation(x_invitation_key: str | None = Header(default=None),
+                        db: Session = Depends(get_db)):
+    if not x_invitation_key:
+        raise HTTPException(403, "invitation_access_denied")
+    invitation = invitation_by_token(db, x_invitation_key)
+    if invitation.status != "READY":
+        raise HTTPException(409, "invitation_not_open")
+    request = request_by_id(db, invitation.request_id)
+    return {"category": request.category, "postal_code": request.postal_code,
+            "requirements": request.requirements,
+            "structured_requirements": json.loads(request.structured_requirements_json or "{}"),
+            "expires_at": aware(invitation.expires_at).isoformat()}
+
+@app.post("/v1/provider/quotes", status_code=201)
+def submit_quote_header(payload: QuoteIn,
+                        x_invitation_key: str | None = Header(default=None),
+                        db: Session = Depends(get_db)):
+    if not x_invitation_key:
+        raise HTTPException(403, "invitation_access_denied")
+    return submit_quote(x_invitation_key, payload, db)
+
+@app.post("/v1/admin/companies/{company_id}/observations",
+          dependencies=[Depends(admin)], status_code=201)
+def record_observation(company_id: str, payload: ObservationIn, db: Session = Depends(get_db)):
+    company = db.get(Company, company_id)
+    if company is None:
+        raise HTTPException(404, "company_not_found")
+    if payload.source_kind not in SOURCES or payload.license_state not in LICENSE_STATES:
+        raise HTTPException(422, "invalid_source_or_license_state")
+    try:
+        value = normalized_field(payload.field_name, payload.value)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    fingerprint = observation_fingerprint(
+        field=payload.field_name, value=value,
+        source_kind=payload.source_kind, source_ref=payload.source_ref)
+    existing = db.query(CompanyObservation).filter_by(
+        company_id=company_id, fingerprint=fingerprint).one_or_none()
+    if existing:
+        return {"observation_id":existing.id,"review_state":existing.review_state,
+                "idempotent_replay":True}
+    row = CompanyObservation(company_id=company_id, field_name=payload.field_name,
+        value=value, source_kind=payload.source_kind, source_ref=payload.source_ref,
+        license_state=payload.license_state, fingerprint=fingerprint)
+    db.add(row); db.flush()
+    audit(db,"COMPANY_OBSERVATION_RECORDED",row.id,"admin",{"company_id":company_id})
+    db.commit()
+    return {"observation_id":row.id,"review_state":row.review_state,"idempotent_replay":False}
+
+@app.post("/v1/admin/observations/{observation_id}/verify", dependencies=[Depends(admin)])
+def verify_observation(observation_id: str, db: Session = Depends(get_db)):
+    observation = db.get(CompanyObservation, observation_id)
+    if not observation:
+        raise HTTPException(404, "observation_not_found")
+    if observation.review_state != "PENDING":
+        raise RuleViolation("observation_not_pending")
+    observation.review_state = "VERIFIED"
+    audit(db,"OBSERVATION_VERIFIED",observation_id,"admin")
+    db.commit()
+    return {"observation_id":observation_id,"review_state":observation.review_state}
+
+@app.post("/v1/admin/observations/{observation_id}/publish", dependencies=[Depends(admin)])
+def publish_observation(observation_id: str, db: Session = Depends(get_db)):
+    observation = db.get(CompanyObservation, observation_id)
+    if observation is None:
+        raise HTTPException(404, "observation_not_found")
+    if not publishable(license_state=observation.license_state,
+                       review_state=observation.review_state):
+        raise RuleViolation("observation_not_approved_for_public_reuse")
+    company = db.get(Company, observation.company_id)
+    field = db.query(CompanyGoldenField).filter_by(
+        company_id=observation.company_id, field_name=observation.field_name).one_or_none()
+    if field is None:
+        field = CompanyGoldenField(company_id=observation.company_id,
+            field_name=observation.field_name, value=observation.value,
+            observation_id=observation.id)
+        db.add(field)
+    else:
+        field.value = observation.value
+        field.observation_id = observation.id
+    setattr(company, observation.field_name, observation.value)
+    audit(db,"GOLDEN_FIELD_PUBLISHED",observation.id,"admin",
+          {"company_id":company.id,"field":observation.field_name})
+    db.commit()
+    return {"company_id":company.id,"field":observation.field_name,
+            "value":observation.value,"source_observation_id":observation.id}
+
+@app.post("/v1/admin/companies/{company_id}/ownership-claims",
+          dependencies=[Depends(admin)], status_code=201)
+def create_ownership_claim(company_id: str, payload: OwnershipClaimIn,
+                           db: Session = Depends(get_db)):
+    if db.get(Company, company_id) is None:
+        raise HTTPException(404, "company_not_found")
+    row=CompanyOwnershipClaim(company_id=company_id,
+        claimant_email=payload.claimant_email, proof_reference=payload.proof_reference)
+    db.add(row); db.flush()
+    audit(db,"OWNERSHIP_CLAIM_STAGED",row.id,"admin",{"company_id":company_id})
+    db.commit()
+    return {"claim_id":row.id,"review_state":row.review_state}
+
+@app.post("/v1/admin/ownership-claims/{claim_id}/review",dependencies=[Depends(admin)])
+def review_ownership_claim(claim_id: str, payload: OwnershipReviewIn,
+                           db: Session = Depends(get_db)):
+    row=db.get(CompanyOwnershipClaim, claim_id)
+    if not row:
+        raise HTTPException(404, "claim_not_found")
+    if row.review_state != "PENDING":
+        raise RuleViolation("claim_already_reviewed")
+    row.review_state="VERIFIED" if payload.approved else "REJECTED"
+    row.reviewer_reference=payload.reviewer_reference
+    # Ownership validation is NOT an authentication grant without an IAM provider.
+    audit(db,"OWNERSHIP_CLAIM_REVIEWED",row.id,"admin",{"decision":row.review_state})
+    db.commit()
+    return {"claim_id":row.id,"review_state":row.review_state,
+            "provider_access_enabled":False}
+
+@app.get("/v1/admin/companies/{company_id}/golden-record",dependencies=[Depends(admin)])
+def get_golden_record(company_id: str, db: Session = Depends(get_db)):
+    company=db.get(Company,company_id)
+    if not company:
+        raise HTTPException(404,"company_not_found")
+    observations=db.query(CompanyObservation).filter_by(company_id=company_id).all()
+    golden=db.query(CompanyGoldenField).filter_by(company_id=company_id).all()
+    ownership=db.query(CompanyOwnershipClaim).filter_by(company_id=company_id).all()
+    return {"company_id":company_id,"legal_name":company.legal_name,
+            "fields":[{"name":f.field_name,"value":f.value,
+                       "observation_id":f.observation_id} for f in golden],
+            "observations":[{"id":o.id,"field":o.field_name,"value":o.value,
+                              "source":o.source_kind,"license_state":o.license_state,
+                              "review_state":o.review_state} for o in observations],
+            "ownership_claims":[{"id":c.id,"state":c.review_state} for c in ownership]}
+
+@app.post("/v1/provider/bookings/{booking_id}/confirm")
+def confirm_booking_header(booking_id: str, x_invitation_key: str | None = Header(default=None),
+                           db: Session = Depends(get_db)):
+    if not x_invitation_key:
+        raise HTTPException(403, "invitation_access_denied")
+    return confirm_booking(x_invitation_key, booking_id, db)

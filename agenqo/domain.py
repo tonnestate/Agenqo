@@ -70,12 +70,14 @@ def commission_cents(net_cents: int, rate_percent: Decimal | str, minimum_cents:
     return max(minimum_cents, int((Decimal(net_cents) * rate / 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)))
 
 def offer_fingerprint(*, quote_id: str, revision: int, description: str, conditions: str,
-                      net_cents: int, gross_cents_value: int, vat_percent: str, expires_at: datetime) -> str:
+                      net_cents: int, gross_cents_value: int, vat_percent: str, expires_at: datetime,
+                      service_attributes: dict | None = None) -> str:
     if expires_at.tzinfo is None:
         raise RuleViolation("expiry_timezone_required")
     canonical = {"quote_id": quote_id, "revision": revision, "description": description,
                  "conditions": conditions, "net_cents": net_cents, "gross_cents": gross_cents_value,
-                 "vat_percent": vat_percent, "expires_at": expires_at.astimezone(timezone.utc).isoformat()}
+                 "vat_percent": vat_percent, "service_attributes": service_attributes or {},
+                 "expires_at": expires_at.astimezone(timezone.utc).isoformat()}
     data = json.dumps(canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 

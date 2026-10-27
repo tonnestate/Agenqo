@@ -33,6 +33,7 @@ class ServiceRequest(Base):
     category = Column(String(80), nullable=False)
     postal_code = Column(String(5), nullable=False)
     requirements = Column(Text, nullable=False)
+    structured_requirements_json = Column(Text, nullable=False, default="{}")
     status = Column(String(32), nullable=False, default="DRAFT")
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
@@ -59,6 +60,7 @@ class Quote(Base):
     vat_percent = Column(Numeric(5, 2), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     binding_declared_by_provider = Column(Boolean, nullable=False, default=False)
+    service_attributes_json = Column(Text, nullable=False, default="{}")
     status = Column(String(32), nullable=False, default="SUBMITTED")
     fingerprint = Column(String(64), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
@@ -102,4 +104,41 @@ class OutboxEvent(Base):
     aggregate_id = Column(String(36), nullable=False)
     payload = Column(Text, nullable=False)
     status = Column(String(32), nullable=False, default="PENDING")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+class CompanyObservation(Base):
+    """An observed value is never silently published or treated as a supplier assertion."""
+    __tablename__ = "company_observations"
+    __table_args__ = (UniqueConstraint("company_id", "fingerprint", name="uq_company_observation"),)
+    id = Column(String(36), primary_key=True, default=uid)
+    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    field_name = Column(String(80), nullable=False)
+    value = Column(String(255), nullable=False)
+    source_kind = Column(String(40), nullable=False)
+    source_ref = Column(String(2048), nullable=False)
+    license_state = Column(String(35), nullable=False)
+    review_state = Column(String(24), nullable=False, default="PENDING")
+    fingerprint = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+class CompanyGoldenField(Base):
+    """A published company field preserves its winning source observation."""
+    __tablename__ = "company_golden_fields"
+    __table_args__ = (UniqueConstraint("company_id", "field_name", name="uq_company_golden_field"),)
+    id = Column(String(36), primary_key=True, default=uid)
+    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    field_name = Column(String(80), nullable=False)
+    value = Column(String(255), nullable=False)
+    observation_id = Column(String(36), ForeignKey("company_observations.id"), nullable=False)
+    published_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+class CompanyOwnershipClaim(Base):
+    """A claimed company remains untrusted pending manual verification."""
+    __tablename__ = "company_ownership_claims"
+    id = Column(String(36), primary_key=True, default=uid)
+    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    claimant_email = Column(String(255), nullable=False)
+    proof_reference = Column(String(1024), nullable=False)
+    review_state = Column(String(20), nullable=False, default="PENDING")
+    reviewer_reference = Column(String(255))
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

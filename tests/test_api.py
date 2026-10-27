@@ -50,11 +50,11 @@ def create_flow(client, partner=True):
     token = inv.json()["provider_token"]
     assert inv.json()["external_delivery"] is False
     expiry = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
-    quote = post(client, f"/v1/provider/invitations/{token}/quotes",
+    quote = post(client, "/v1/provider/quotes",
          {"description": "Wohnung komplett raeumen und fachgerecht entsorgen",
           "conditions": "Besenrein", "price_net_eur": "1260.50",
           "vat_percent": "19.00", "expires_at": expiry,
-          "binding_declared_by_provider": True}, headers={})
+          "binding_declared_by_provider": True}, headers={"X-Invitation-Key": token})
     assert quote.status_code == 201, quote.text
     quote_id = quote.json()["quote_id"]
     assert post(client, f"/v1/admin/quotes/{quote_id}/validate", {}).status_code == 200
@@ -83,8 +83,8 @@ def test_guards_and_e2e_commission(app_client):
     assert repeat.json()["idempotent_replay"] is True
     assert post(client, f"/v1/admin/bookings/{booking_id}/complete",
                 {"completion_evidence": "Confirmed via signed completion document"}).status_code == 409
-    confirmation = post(client, f"/v1/provider/invitations/{token}/bookings/{booking_id}/confirm",
-                        {}, headers={})
+    confirmation = post(client, f"/v1/provider/bookings/{booking_id}/confirm",
+                        {}, headers={"X-Invitation-Key": token})
     assert confirmation.status_code == 200
     # An agreement changed after booking must NOT change this booking's commission.
     with Session() as db:
@@ -109,8 +109,8 @@ def test_no_agreement_no_commission(app_client):
     booked = post(client, f"/v1/requests/{request_id}/approve",
         {"quote_id": quote_id, "offer_fingerprint": offer["fingerprint"]},
         headers={"X-Customer-Key": key}).json()
-    assert post(client, f"/v1/provider/invitations/{token}/bookings/{booked['booking_id']}/confirm",
-                {}, headers={}).status_code == 200
+    assert post(client, f"/v1/provider/bookings/{booked['booking_id']}/confirm",
+                {}, headers={"X-Invitation-Key": token}).status_code == 200
     # A retroactively added agreement must not create a commission.
     with Session() as db:
         company = db.query(Company).one()
@@ -136,10 +136,10 @@ def test_provider_isolation_and_quote_auth(app_client):
     booking = post(client, f"/v1/requests/{request_id}/approve",
         {"quote_id": quote_id, "offer_fingerprint": offer["fingerprint"]},
         headers={"X-Customer-Key": key}).json()
-    cross = post(client, f"/v1/provider/invitations/{other_token}/bookings/{booking['booking_id']}/confirm",
-        {}, headers={})
+    cross = post(client, f"/v1/provider/bookings/{booking['booking_id']}/confirm",
+        {}, headers={"X-Invitation-Key": other_token})
     assert cross.status_code == 403
-    assert post(client, f"/v1/provider/invitations/{token}/quotes",
+    assert post(client, "/v1/provider/quotes",
         {"description": "unallowed repeat", "price_net_eur": "10",
          "expires_at": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()},
-        headers={}).status_code == 409
+        headers={"X-Invitation-Key": token}).status_code == 409

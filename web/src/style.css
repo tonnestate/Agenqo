@@ -1,0 +1,10 @@
+:root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#142438;background:#f2f5f8}
+*{box-sizing:border-box}body{margin:0}main{max-width:740px;margin:32px auto;background:#fff;min-height:85vh;box-shadow:0 10px 30px #102b4c14;border-radius:16px;overflow:hidden}
+header{background:#103857;color:white;padding:24px 32px}.brand{font-size:30px;letter-spacing:-1.4px;font-weight:750}header p{margin:4px 0}
+section{padding:30px 32px}h1{font-size:25px}label{display:block;margin:10px 0 4px;font-weight:550}
+input,textarea,select{width:100%;padding:10px;border:1px solid #bdcbd7;border-radius:7px;font:inherit}
+input[type=checkbox]{width:auto;margin-right:10px}button{background:#136b63;border:0;color:#fff;border-radius:8px;padding:13px 23px;font-weight:650;cursor:pointer;margin-top:20px}
+button:disabled{opacity:.55}.error{padding:15px;background:#fee8e8;color:#850e0e}.success{color:#115f45}
+.req{white-space:pre-wrap;border:1px solid #ddd;padding:16px;background:#f8fafc;border-radius:8px}
+.note{color:#64748b;font-size:13px}pre{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:760px){main{margin:0;border-radius:0}header,section{padding:22px}}
