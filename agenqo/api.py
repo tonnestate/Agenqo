@@ -39,6 +39,8 @@ _WEB_DIST = Path(__file__).resolve().parent.parent / "web_dist"
 if (_WEB_DIST / "index.html").is_file():
     app.mount("/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="quote-form-assets")
     @app.get("/quote", include_in_schema=False)
+    @app.get("/provider", include_in_schema=False)
+    @app.get("/provider/callback", include_in_schema=False)
     def quote_page():
         return FileResponse(_WEB_DIST / "index.html", headers={
             "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
@@ -301,7 +303,7 @@ def approve_offer(request_id: str, payload: ApprovalIn,
                   x_customer_key: str | None = Header(default=None),
                   db: Session = Depends(get_db)):
     request = customer_request(db, request_id, x_customer_key)
-    existing = db.query(Booking).filter_by(request_id=request.id).first()
+    existing = db.query(Booking).filter_by(request_id=request.id).with_for_update().populate_existing().first()
     if existing:
         if existing.quote_id == payload.quote_id and hmac.compare_digest(
                 existing.offer_fingerprint, payload.offer_fingerprint):

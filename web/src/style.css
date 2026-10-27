@@ -8,3 +8,19 @@ button:disabled{opacity:.55}.error{padding:15px;background:#fee8e8;color:#850e0e
 .req{white-space:pre-wrap;border:1px solid #ddd;padding:16px;background:#f8fafc;border-radius:8px}
 .note{color:#64748b;font-size:13px}pre{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:760px){main{margin:0;border-radius:0}header,section{padding:22px}}
+
+/* OIDC-authenticated provider area: same styles as direct invitation form. */
+.provider-portal{max-width:1080px}
+.provider-portal h2{margin-top:32px;font-size:20px}
+.provider-portal h3{margin-top:20px}
+.portal-panel{border:1px solid #d5e0e9;background:#fcfdff;border-radius:10px;padding:18px;margin:20px 0}
+.portal-panel .portal-panel{background:white}
+.portal-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;justify-content:space-between;margin:14px 0}
+.portal-toolbar input{flex:1;min-width:210px}
+.portal-form{padding-top:12px}
+.provider-portal .secondary{background:#e6ecf0;color:#143a4e;margin-top:0}
+.provider-portal .inline-check{display:flex;align-items:baseline;gap:8px}
+.provider-portal .inline-check input{width:auto}
+.provider-portal button{margin-top:4px}
+.provider-portal details{padding:12px 0}
+.provider-portal article h4{margin-bottom:6px}

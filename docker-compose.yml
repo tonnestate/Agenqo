@@ -8,6 +8,7 @@ services:
       AGENQO_ADMIN_KEY: ${AGENQO_ADMIN_KEY:?Set long random admin key}
       AGENQO_OIDC_ISSUER: ${AGENQO_OIDC_ISSUER:-}
       AGENQO_OIDC_AUDIENCE: ${AGENQO_OIDC_AUDIENCE:-}
+      AGENQO_OIDC_CLIENT_ID: ${AGENQO_OIDC_CLIENT_ID:-}
       AGENQO_OIDC_JWKS_URL: ${AGENQO_OIDC_JWKS_URL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"

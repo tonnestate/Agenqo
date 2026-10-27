@@ -84,3 +84,11 @@ Das neue [RFQ-Kosten- und Erlösjournal](docs/UNIT_ECONOMICS_V04.md) erfasst var
 - [Geschützter Liquiditätsbericht](agenqo/api.py) – `GET /v1/admin/analytics/liquidity`.
 
 Lokale Tests: `pip install -e ".[test]"` und `pytest`. Für den echten API-Start müssen MySQL-Zugang und Datenbankschema eingerichtet sein. Es wurden keine Zugangsdaten hinterlegt und keine Daten auf dem vorhandenen Server geändert.
+
+
+### Anbieterportal v0.6 (authentifiziert, Pilot)
+
+- [Technische Umsetzung, OIDC-Konfiguration und Grenzen](docs/PROVIDER_PORTAL_V06.md).
+- `/provider`: Anmelden mit Authorization Code + PKCE, Firmen suchen und übernehmen, Mitgliedschaften und Profilvorschläge bearbeiten, Einladungen und Angebote anzeigen und Buchungen bestätigen.
+- Browser-Login bleibt gesperrt, bis ein bestehender/extern bereitgestellter OIDC-Provider mit `AGENQO_OIDC_CLIENT_ID`, Issuer, JWKS und passender API-Audience konfiguriert ist. Es wird kein neuer Identitätsserver gestartet.
+- InnoDB-Zeilensperren sichern konkurrierende Käuferfreigaben, Anbieterangebote und Bestätigungen. GitHub Actions führt einen echten MySQL-Konkurrenztest aus.

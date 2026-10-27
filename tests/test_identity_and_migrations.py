@@ -133,3 +133,100 @@ def test_migration_creates_fresh_schema(tmp_path,monkeypatch):
         command.upgrade(cfg,"head")
     finally:
         engine.dispose()
+
+
+def test_provider_portal_company_isolation_and_authenticated_quote_flow(oidc_client, monkeypatch):
+    client, Session, token = oidc_client
+    monkeypatch.setenv("AGENQO_OIDC_CLIENT_ID", "agenqo-provider-spa")
+    assert client.get("/v1/public/auth-config").json() == {
+        "enabled": True, "authority": ISSUER, "client_id": "agenqo-provider-spa",
+        "scope": "openid profile",
+    }
+    member = {"Authorization": "Bearer " + token()}
+    outsider = {"Authorization": "Bearer " + token(sub="outside")}
+    def company(name):
+        r = client.post("/v1/admin/companies", headers=ADMIN, json={
+            "legal_name": name, "postal_code": "20095",
+            "service_category": "entruempelung", "contact_email": "private@example.test"})
+        assert r.status_code == 201
+        return r.json()["company_id"]
+    own, foreign = company("Nord Entruempelung"), company("Suede Entruempelung")
+    found = client.get("/v1/public/companies",params={"q":"Entruempelung"})
+    assert found.status_code == 200
+    assert {c["company_id"] for c in found.json()["companies"]} == {own, foreign}
+    assert all("contact_email" not in c for c in found.json()["companies"])
+    assert client.get("/v1/public/companies",params={"q":"a"}).status_code == 422
+    assert client.get(f"/v1/provider/companies/{own}/profile",headers=member).status_code == 403
+    for company_id in (own,foreign):
+        assert client.get(
+            f"/v1/provider/companies/{company_id}/invitations",headers=outsider).status_code == 403
+    claim = client.post(f"/v1/provider/companies/{own}/claim",headers=member,json={
+        "claimant_email":"owner@example.test", "proof_reference":"signed-via-register-001"})
+    assert claim.status_code == 201
+    approved = client.post(f"/v1/admin/ownership-claims/{claim.json()['claim_id']}/review",
+        headers=ADMIN,json={"approved":True,"reviewer_reference":"in-person-verification"})
+    assert approved.status_code == 200
+    profile = client.get(f"/v1/provider/companies/{own}/profile", headers=member)
+    assert profile.status_code == 200
+    assert profile.json()["legal_name"] == "Nord Entruempelung"
+    assert client.get(f"/v1/provider/companies/{foreign}/profile", headers=member).status_code == 403
+
+    rfq = client.post("/v1/admin/requests", headers=ADMIN, json={
+        "customer_email":"private-customer@example.test", "postal_code":"20095",
+        "category":"entruempelung","requirements":"Entsorgung 40 qm Apartment"})
+    assert rfq.status_code == 201
+    rid = rfq.json()["request_id"]
+    key = rfq.json()["customer_token"]
+    assert client.post(f"/v1/admin/requests/{rid}/qualify",headers=ADMIN).status_code == 200
+    invited = client.post(f"/v1/admin/requests/{rid}/invitations",
+        headers=ADMIN,json={"company_id":own})
+    assert invited.status_code == 201
+    invite_id = invited.json()["invitation_id"]
+    inbox = client.get(f"/v1/provider/companies/{own}/invitations",headers=member)
+    assert inbox.status_code == 200
+    assert len(inbox.json()["invitations"]) == 1
+    assert inbox.json()["invitations"][0]["invitation_id"] == invite_id
+    assert "private-customer@example.test" not in inbox.text
+    assert "provider_token" not in inbox.text
+    assert client.get(f"/v1/provider/companies/{own}/invitations",headers=outsider).status_code == 403
+
+    offer_data = {
+        "description":"Wohnung inklusive Sonderentsorgung komplett raeumen",
+        "price_net_eur":"400.00", "vat_percent":"19",
+        "binding_declared_by_provider":True,
+        "expires_at":(datetime.now(timezone.utc)+timedelta(days=2)).isoformat(),
+    }
+    path = f"/v1/provider/companies/{own}/invitations/{invite_id}/quotes"
+    assert client.post(path,headers=outsider,json=offer_data).status_code == 403
+    # Another company's invitation cannot be used by this company.
+    assert client.post(f"/v1/provider/companies/{foreign}/invitations/{invite_id}/quotes",
+                       headers=member,json=offer_data).status_code == 403
+    offer = client.post(path,headers=member,json=offer_data)
+    assert offer.status_code == 201,offer.text
+    assert client.post(path,headers=member,json=offer_data).status_code == 409
+    assert client.post(f"/v1/admin/quotes/{offer.json()['quote_id']}/validate",
+                       headers=ADMIN).status_code == 200
+    for_customer = client.get(f"/v1/requests/{rid}/offers", headers={
+        "X-Customer-Key":key}).json()["offers"]
+    booked = client.post(f"/v1/requests/{rid}/approve",headers={
+        "X-Customer-Key":key},json={
+        "quote_id":offer.json()["quote_id"],"offer_fingerprint":for_customer[0]["fingerprint"]})
+    assert booked.status_code == 201,booked.text
+    book_id = booked.json()["booking_id"]
+    confirm_path = f"/v1/provider/companies/{own}/bookings/{book_id}/confirm"
+    assert client.post(confirm_path,headers=outsider,json={}).status_code == 403
+    confirmed = client.post(confirm_path,headers=member,json={})
+    assert confirmed.status_code == 200,confirmed.text
+    assert confirmed.json()["idempotent_replay"] is False
+    assert client.post(confirm_path,headers=member,json={}).json()["idempotent_replay"] is True
+    with Session() as db:
+        from agenqo.models import OutboxEvent
+        assert db.query(OutboxEvent).filter_by(event_type="booking.confirmed").count() == 1
+
+
+def test_provider_public_configuration_is_fail_closed(oidc_client,monkeypatch):
+    client,_,_ = oidc_client
+    monkeypatch.delenv("AGENQO_OIDC_CLIENT_ID",raising=False)
+    assert client.get("/v1/public/auth-config").json()["enabled"] is False
+    monkeypatch.setenv("AGENQO_OIDC_CLIENT_ID","not a client id!")
+    assert client.get("/v1/public/auth-config").json()["enabled"] is False

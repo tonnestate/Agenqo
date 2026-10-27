@@ -1,6 +1,6 @@
 {
-  "name": "agenqo-provider-quote",
-  "version": "0.1.0",
+  "name": "agenqo-portal",
+  "version": "0.5.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
     "@rjsf/core": "^6.0.0",
     "@rjsf/validator-ajv8": "^6.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "oidc-client-ts": "^3.3.0"
   },
   "devDependencies": {
     "vite": "^6.0.0"
