@@ -168,7 +168,7 @@ def invite_provider(request_id: str, payload: InvitationIn, db: Session = Depend
     company = db.get(Company, payload.company_id)
     if company is None:
         raise HTTPException(404, "company_not_found")
-    if request.status not in {"QUALIFIED", "INVITING", "COLLECTING"}:
+    if request.status not in {"QUALIFIED", "INVITING", "COLLECTING", "QUOTES_READY"}:
         raise RuleViolation("request_not_invitable")
     if company.service_category != request.category:
         raise RuleViolation("provider_wrong_category")
@@ -202,10 +202,10 @@ def submit_quote(token: str, payload: QuoteIn, db: Session = Depends(get_db)):
     request = request_by_id(db, invitation.request_id)
     price = cents(payload.price_net_eur)
     total = gross_cents(price, payload.vat_percent)
-    quote = Quote(invitation_id=invitation.id, description=payload.description,
+    quote = Quote(invitation_id=invitation.id, revision=1, description=payload.description,
                   conditions=payload.conditions, net_cents=price,
                   gross_cents=total, vat_percent=payload.vat_percent,
-                  expires_at=payload.expires_at,
+                  expires_at=payload.expires_at.astimezone(timezone.utc),
                   binding_declared_by_provider=payload.binding_declared_by_provider)
     # Materialize identifier and content hash before the NOT NULL database insert.
     from .models import uid
