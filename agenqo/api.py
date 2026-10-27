@@ -207,9 +207,12 @@ def submit_quote(token: str, payload: QuoteIn, db: Session = Depends(get_db)):
                   gross_cents=total, vat_percent=payload.vat_percent,
                   expires_at=payload.expires_at,
                   binding_declared_by_provider=payload.binding_declared_by_provider)
+    # Materialize identifier and content hash before the NOT NULL database insert.
+    from .models import uid
+    quote.id = uid()
+    quote.fingerprint = quote_hash(quote)
     db.add(quote)
     db.flush()
-    quote.fingerprint = quote_hash(quote)
     invitation.status = move("invitation", invitation.status, "RESPONDED", "provider")
     if request.status == "INVITING":
         request.status = move("request", request.status, "COLLECTING", "provider")
