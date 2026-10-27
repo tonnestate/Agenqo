@@ -1,30 +1,18 @@
+# Only Agenqo's application runs here. It connects to the user's EXISTING MySQL.
+# No MySQL/PostgreSQL/MongoDB container will be started by this compose project.
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: agenqo
-      POSTGRES_PASSWORD: ${AGENQO_DB_PASSWORD:?Set AGENQO_DB_PASSWORD}
-      POSTGRES_DB: agenqo
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agenqo"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
   api:
     build: .
     environment:
-      AGENQO_DATABASE_URL: postgresql+psycopg://agenqo:${AGENQO_DB_PASSWORD:?Set AGENQO_DB_PASSWORD}@postgres:5432/agenqo
-      AGENQO_ADMIN_KEY: ${AGENQO_ADMIN_KEY:?Set AGENQO_ADMIN_KEY}
+      AGENQO_DATABASE_URL: ${AGENQO_DATABASE_URL:?Provide URL for existing MySQL server}
+      AGENQO_ADMIN_KEY: ${AGENQO_ADMIN_KEY:?Set long random admin key}
       AGENQO_OIDC_ISSUER: ${AGENQO_OIDC_ISSUER:-}
       AGENQO_OIDC_AUDIENCE: ${AGENQO_OIDC_AUDIENCE:-}
       AGENQO_OIDC_JWKS_URL: ${AGENQO_OIDC_JWKS_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:8080:8080"
+    # Dev/demo only. Run migrations separately under change control before production.
     command: ["/bin/sh", "-c", "alembic upgrade head && exec uvicorn agenqo.api:app --host 0.0.0.0 --port 8080"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-volumes:
-  postgres_data:
+    restart: unless-stopped

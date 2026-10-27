@@ -741,3 +741,13 @@ def economics_summary(db: Session = Depends(get_db)):
                     Decimal("1"), rounding=ROUND_HALF_UP)) if n else None,
             "economic_event_count":sum(t["economic_event_count"] for t in totals),
             "warning":"Recorded events are operator-entered; not audited accounting or total company profit."}
+
+
+# ---- Read-only analytics; DuckDB is embedded in-memory, never a transaction DB. ----
+@app.get("/v1/admin/analytics/liquidity", dependencies=[Depends(admin)])
+def get_liquidity_analytics(db: Session = Depends(get_db)):
+    from .analytics import marketplace_liquidity_report
+    try:
+        return marketplace_liquidity_report(db)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc

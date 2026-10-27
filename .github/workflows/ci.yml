@@ -1,4 +1,4 @@
-name: Agenqo CI
+name: Agenqo CI (existing MySQL + embedded DuckDB)
 on:
   push:
   pull_request:
@@ -6,19 +6,21 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:16-alpine
+      mysql:
+        image: mysql:8.4
         env:
-          POSTGRES_USER: agenqo
-          POSTGRES_PASSWORD: ci_only_password
-          POSTGRES_DB: agenqo_ci
+          MYSQL_ROOT_PASSWORD: ci_root_only
+          MYSQL_USER: agenqo
+          MYSQL_PASSWORD: ci_only_password
+          MYSQL_DATABASE: agenqo_ci
         ports:
-          - 5432:5432
+          - 3306:3306
         options: >-
-          --health-cmd "pg_isready -U agenqo -d agenqo_ci"
-          --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root -pci_root_only"
+          --health-interval 5s --health-timeout 5s --health-retries 20
     env:
-      AGENQO_DATABASE_URL: postgresql+psycopg://agenqo:ci_only_password@localhost:5432/agenqo_ci
+      AGENQO_DATABASE_URL: mysql+pymysql://agenqo:ci_only_password@127.0.0.1:3306/agenqo_ci?charset=utf8mb4
+      AGENQO_ALLOW_SQLITE_DEV: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,11 +28,11 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -e ".[test]"
       - run: pytest
-      - name: Migrate clean PostgreSQL schema
+      - name: Migrate clean MySQL schema
         run: alembic upgrade head
-      - name: Verify PostgreSQL migration and company membership tables
+      - name: Verify MySQL schema
         run: |
-          python -c 'from agenqo.database import engine; from sqlalchemy import inspect; assert {"companies","company_memberships","company_observations","bookings","alembic_version"} <= set(inspect(engine).get_table_names())'
+          python -c 'from agenqo.database import engine; from sqlalchemy import inspect; assert {"companies","company_memberships","company_observations","bookings","request_economic_events","alembic_version"} <= set(inspect(engine).get_table_names())'
   quote-form:
     runs-on: ubuntu-latest
     defaults:

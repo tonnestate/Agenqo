@@ -30,7 +30,7 @@
 - `agenqo/models.py`: erste eigenständige SQLAlchemy-Transaktionsmodelle.
 - `agenqo/api.py`: geschützte Pilot-API für Kundenanfragen, Anbieter-Einladungen, Angebotsabgabe, Prüfung, Freigabe, Buchungsbestätigung und evidenzgestützten Abschluss.
 - `tests/`: Fachregel- und API-Integrationstests, ausgeführt über GitHub Actions.
-- `docker-compose.yml`: lokales PostgreSQL 16 und Backend, ohne TonnEstate-Laufzeitabhängigkeit.
+- `docker-compose.yml`: nur Agenqo-API, verbunden mit dem bereits vorhandenen MySQL; kein zusätzlicher Datenbankserver.
 
 ### Entwicklung lokal
 
@@ -44,7 +44,7 @@ uvicorn agenqo.api:app --reload
 pytest
 ```
 
-Für Docker Compose sind `AGENQO_DB_PASSWORD` und `AGENQO_ADMIN_KEY` erforderlich. Die API bindet in Compose nur an localhost:8080. Die automatische Tabellenanlage ist nur für lokale Entwicklung vorgesehen.
+Für Docker Compose sind `AGENQO_DATABASE_URL` (vorhandenes MySQL) und `AGENQO_ADMIN_KEY` erforderlich. Die API bindet in Compose nur an localhost:8080. Die automatische Tabellenanlage ist nur für lokale Entwicklung vorgesehen.
 
 ### Sicherheit und Scope
 
@@ -65,10 +65,22 @@ Agenqo besitzt eigene Daten, APIs und Geschäftsregeln. TonnEstate, LemonMe, Dra
 
 Erforderliche Server-Konfiguration: `AGENQO_OIDC_ISSUER`, `AGENQO_OIDC_AUDIENCE`, `AGENQO_OIDC_JWKS_URL` (HTTPS). Ohne diese Einstellungen verweigert die Provider-API den Zugriff. **Es ist noch kein Login-/Registrierungsfrontend und kein OIDC-Provider eingerichtet.** Kein selbst ausgestellter JWT-Schlüssel und keine unsichere Dev-Bypass-Rolle.
 
-`alembic upgrade head` erzeugt das gesamte Agenqo-Datenbankschema auf einer **frischen** Datenbank. Für bestehende, durch `create_all` erzeugte lokale DBs ist vor `alembic stamp` eine individuelle Schema-/Versionsprüfung erforderlich. Die Docker-Compose-Entwicklungsumgebung führt Migrationen vor dem API-Start aus. Für produktive Deployments sollte die Migration separat unter Change Control laufen.
+`alembic upgrade head` erzeugt das gesamte Agenqo-Datenbankschema auf einer **frischen** Datenbank. Für bestehende, durch `create_all` erzeugte lokale DBs ist vor `alembic stamp` eine individuelle Schema-/Versionsprüfung erforderlich. Die führende Produktionsdatenbank ist MySQL. Die Docker-Compose-Entwicklungsumgebung führt Migrationen vor dem API-Start aus. Für produktive Deployments sollte die Migration separat unter Change Control laufen.
 
 Weitere Details: [Provider-Sicherheits-/Migrationsstand](docs/IDENTITY_MIGRATION_V03.md).
 
 ### Erfasste Wirtschaftlichkeit je Anfrage (v0.4)
 
 Das neue [RFQ-Kosten- und Erlösjournal](docs/UNIT_ECONOMICS_V04.md) erfasst variable Kosten **auch bei erfolglosen Anfragen** und tatsächlich belegte Zahlungseingänge. Eine fällige oder erwartete Vermittlungsprovision wird nicht automatisch als bezahlter Umsatz gezählt. Die internen Pilot-APIs liefern eine Kosten-/Erlösübersicht pro Anfrage und aggregiert über den gesamten Pilot. Die Angaben sind **keine** geprüfte Buchhaltung, sondern bislang manuell erfasste operative Messdaten.
+
+
+### Datenhaltung v0.5 – MySQL + DuckDB, ohne zusätzlichen Datenbankserver
+
+**Verbindlich:** vorhandenes MySQL für Transaktionen, optional eingebettetes DuckDB für anonymisierte Markt-/Kostenanalysen. PostgreSQL ist aus dem aktuellen Deployment und der CI entfernt. MongoDB wird nicht zusätzlich betrieben; eine Anbindung an den bestehenden Dienst ist nur bei Bedarf vorgesehen.
+
+- [Datenbankentscheidung und weitere Donoren](docs/DATENBANK_DONOREN_MYSQL_DUCKDB.md)
+- [Optionaler DuckDB-Analyseadapter](agenqo/analytics.py) – rein im Speicher, keine neue Datenbankdatei und keine externe Extension.
+- [Alembic-Migrationen](alembic/versions/) – neuer Standard: MySQL, SQLite nur isolierte Tests.
+- [Geschützter Liquiditätsbericht](agenqo/api.py) – `GET /v1/admin/analytics/liquidity`.
+
+Lokale Tests: `pip install -e ".[test]"` und `pytest`. Für den echten API-Start müssen MySQL-Zugang und Datenbankschema eingerichtet sein. Es wurden keine Zugangsdaten hinterlegt und keine Daten auf dem vorhandenen Server geändert.

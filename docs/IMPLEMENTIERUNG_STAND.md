@@ -82,3 +82,10 @@ Technische Einzelheiten: docs/DONOREN_ADOPTION_2026-10-27.md.
 RequestEconomicEvent führt immutable, idempotente, per RFQ zugeordnete COST-/RECEIPT-Ereignisse. Zwei Admin-Reporting-Endpunkte berechnen erfasste Kosten, erhaltene Beträge und einen vorläufigen Deckungsbeitrag, einschließlich nicht erfolgreich abgeschlossener Anfragen. Eine nur provisionsfähige Forderung wird getrennt ausgewiesen, nicht als Zahlung verbucht.
 
 **Weiter offen:** PSP-/Bank-Reconciliation, echte Buchhaltung, Kostenautomatisierung, Rückerstattungskorrekturen, Fixkosten, Premium-Abos und erhobene reale Pilotdaten. Details: docs/UNIT_ECONOMICS_V04.md.
+
+
+## Datenbankentscheidung v0.5 – frühere PostgreSQL-Angaben historisch
+
+**Aktueller Stand:** Das Deployment verwendet vorhandenes **MySQL** statt PostgreSQL; CI testet die Alembic-Migration auf einem temporären MySQL-Service. Eingebettetes **DuckDB** ist optional für anonymisierte analytische Berichte. Die alten Abschnitte oben beschreiben den damaligen Prototypen und sind hinsichtlich der Datenbank überholt.
+
+Details: docs/DATENBANK_DONOREN_MYSQL_DUCKDB.md.
