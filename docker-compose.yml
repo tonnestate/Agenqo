@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agenqo
+      POSTGRES_PASSWORD: ${AGENQO_DB_PASSWORD:?Set AGENQO_DB_PASSWORD}
+      POSTGRES_DB: agenqo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agenqo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build: .
+    environment:
+      AGENQO_DATABASE_URL: postgresql+psycopg://agenqo:${AGENQO_DB_PASSWORD:?Set AGENQO_DB_PASSWORD}@postgres:5432/agenqo
+      AGENQO_ADMIN_KEY: ${AGENQO_ADMIN_KEY:?Set AGENQO_ADMIN_KEY}
+      AGENQO_AUTO_CREATE_SCHEMA: "1"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  postgres_data:
