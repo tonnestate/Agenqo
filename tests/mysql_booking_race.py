@@ -46,6 +46,24 @@ with SessionLocal() as db:
     db.add(quote)
     db.commit()
 
+# Detect value canonicalization differences between ORM insert and MySQL round-trip.
+with SessionLocal() as db:
+    stored = db.get(Quote, quote_id)
+    stored_hash = quote_hash(stored)
+    if stored_hash != fingerprint:
+        raise AssertionError({
+            "pre_insert_hash":fingerprint,
+            "mysql_roundtrip_hash":stored_hash,
+            "expires_at":str(stored.expires_at),
+            "vat_percent":str(stored.vat_percent),
+            "revision":stored.revision,
+            "conditions":stored.conditions,
+            "attributes":stored.service_attributes_json,
+            "description":stored.description,
+            "net":stored.net_cents,
+            "gross":stored.gross_cents
+        })
+
 start = Barrier(2)
 
 def book(_):
