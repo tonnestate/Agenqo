@@ -77,7 +77,7 @@ def offer_fingerprint(*, quote_id: str, revision: int, description: str, conditi
     canonical = {"quote_id": quote_id, "revision": revision, "description": description,
                  "conditions": conditions, "net_cents": net_cents, "gross_cents": gross_cents_value,
                  "vat_percent": vat_percent, "service_attributes": service_attributes or {},
-                 "expires_at": expires_at.astimezone(timezone.utc).isoformat()}
+                 "expires_at": expires_at.astimezone(timezone.utc).replace(microsecond=0).isoformat()}
     data = json.dumps(canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 

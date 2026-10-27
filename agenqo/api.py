@@ -249,7 +249,7 @@ def submit_quote_for_invitation(invitation: Invitation, payload: QuoteIn, db: Se
     quote = Quote(invitation_id=invitation.id, revision=1, description=payload.description,
                   conditions=payload.conditions, net_cents=price,
                   gross_cents=total, vat_percent=payload.vat_percent,
-                  expires_at=payload.expires_at.astimezone(timezone.utc),
+                  expires_at=payload.expires_at.astimezone(timezone.utc).replace(microsecond=0),
                   binding_declared_by_provider=payload.binding_declared_by_provider,
                   service_attributes_json=json.dumps(attrs, ensure_ascii=False, sort_keys=True))
     # Materialize identifier and content hash before the NOT NULL database insert.

@@ -45,3 +45,18 @@ def test_fingerprint_and_token():
         require_valid_offer("BINDING", expiry, "0" * 64, digest)
     require_valid_offer("BINDING", expiry, digest, digest)
     assert offer_fingerprint(**(args | {"net_cents": 50001})) != digest
+
+
+def test_fingerprint_is_stable_across_mysql_datetime_second_precision():
+    # MySQL's default DATETIME precision is seconds. SQLite retains fractions.
+    # The same actual offer must not become invalid after a MySQL round-trip.
+    from datetime import datetime, timedelta, timezone
+    expiry = datetime.now(timezone.utc) + timedelta(days=2)
+    details = dict(quote_id="q-mysql", revision=1, description="Raeumung",
+                   conditions="Besenrein", net_cents=100000, gross_cents_value=119000,
+                   vat_percent="19.00")
+    digest = offer_fingerprint(**details, expires_at=expiry)
+    assert digest == offer_fingerprint(**details,
+        expires_at=expiry.replace(microsecond=0))
+    assert digest != offer_fingerprint(**details,
+        expires_at=expiry + timedelta(seconds=1))
