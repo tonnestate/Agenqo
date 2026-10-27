@@ -198,7 +198,10 @@ def qualify_request(request_id: str, db: Session = Depends(get_db)):
 
 @app.post("/v1/admin/requests/{request_id}/invitations", dependencies=[Depends(admin)], status_code=201)
 def invite_provider(request_id: str, payload: InvitationIn, db: Session = Depends(get_db)):
-    request = request_by_id(db, request_id)
+    # Serialize provider invitations and enforce the cap under concurrent admin calls.
+    request = db.query(ServiceRequest).filter_by(id=request_id).with_for_update().populate_existing().one_or_none()
+    if request is None:
+        raise HTTPException(404, "request_not_found")
     company = db.get(Company, payload.company_id)
     if company is None:
         raise HTTPException(404, "company_not_found")
@@ -228,6 +231,13 @@ def invite_provider(request_id: str, payload: InvitationIn, db: Session = Depend
 
 def submit_quote(token: str, payload: QuoteIn, db: Session = Depends(get_db)):
     invitation = invitation_by_token(db, token)
+    return submit_quote_for_invitation(invitation, payload, db)
+
+def submit_quote_for_invitation(invitation: Invitation, payload: QuoteIn, db: Session):
+    # MySQL/InnoDB row lock; a second concurrent offer cannot reuse this invitation.
+    invitation = db.query(Invitation).filter_by(id=invitation.id).with_for_update().populate_existing().one()
+    if aware(invitation.expires_at) <= now():
+        raise HTTPException(410, "invitation_expired")
     if invitation.status != "READY":
         raise RuleViolation("invitation_not_open")
     if payload.expires_at.tzinfo is None or aware(payload.expires_at) <= now():
@@ -303,6 +313,8 @@ def approve_offer(request_id: str, payload: ApprovalIn,
                   x_customer_key: str | None = Header(default=None),
                   db: Session = Depends(get_db)):
     request = customer_request(db, request_id, x_customer_key)
+    # Serialize all approval attempts for this RFQ before looking up existing bookings.
+    request = db.query(ServiceRequest).filter_by(id=request.id).with_for_update().populate_existing().one()
     existing = db.query(Booking).filter_by(request_id=request.id).with_for_update().populate_existing().first()
     if existing:
         if existing.quote_id == payload.quote_id and hmac.compare_digest(
@@ -337,7 +349,10 @@ def approve_offer(request_id: str, payload: ApprovalIn,
 
 def confirm_booking(token: str, booking_id: str, db: Session = Depends(get_db)):
     invitation = invitation_by_token(db, token)
-    booking = db.get(Booking, booking_id)
+    return confirm_booking_for_invitation(invitation, booking_id, db)
+
+def confirm_booking_for_invitation(invitation: Invitation, booking_id: str, db: Session):
+    booking = db.query(Booking).filter_by(id=booking_id).with_for_update().populate_existing().one_or_none()
     if booking is None:
         raise HTTPException(404, "booking_not_found")
     quote = db.get(Quote, booking.quote_id)
@@ -753,3 +768,7 @@ def get_liquidity_analytics(db: Session = Depends(get_db)):
         return marketplace_liquidity_report(db)
     except RuntimeError as exc:
         raise HTTPException(503, str(exc)) from exc
+
+# Register the OIDC-authenticated provider portal after core handlers are defined.
+from .provider_portal import router as provider_portal_router
+app.include_router(provider_portal_router)
