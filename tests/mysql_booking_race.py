@@ -33,7 +33,7 @@ with SessionLocal() as db:
     quote = Quote(id=uid(),invitation_id=invitation.id,revision=1,
         description="Komplettentsorgung",conditions="Besenrein",
         net_cents=100000,gross_cents=119000,vat_percent=Decimal("19.00"),
-        expires_at=datetime.now(timezone.utc)+timedelta(days=2),
+        expires_at=(datetime.now(timezone.utc)+timedelta(days=2)).replace(microsecond=0),
         binding_declared_by_provider=True,service_attributes_json="{}",
         status="BINDING",fingerprint="0"*64)
     quote.fingerprint=quote_hash(quote)
