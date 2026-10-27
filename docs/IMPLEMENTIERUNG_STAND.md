@@ -56,3 +56,12 @@ Für Docker Compose zusätzlich `AGENQO_DB_PASSWORD` setzen. API-Port ist auf lo
 ## Finanzielle Verbindlichkeit im Prototyp
 
 Der bei Kundenfreigabe dokumentierte Vermittlungsvertrag einschließlich Provisionssatz und Mindestprovision wird nun als **Buchungssnapshot** gespeichert. Spätere Änderungen des Provider-Profils lösen weder Nachberechnungen noch nachträgliche Provisionsansprüche für die frühere Buchung aus. Dieser Snapshot ersetzt **keinen** rechtsverbindlich unterzeichneten oder anderweitig wirksam angenommenen Vertrag; dessen Beweisführung bleibt ausstehend.
+
+
+## Ergänzung: Donor-Integration (v0.2, 27.10.2026)
+
+Umgesetzt: eigenständige Golden-Record-Beobachtungen und Publikationsgates (aus TonnEstate-Mechanismen adaptiert); schema-validierte Entrümpelungsanforderungen; dynamisches React-JSON-Schema-Form für Angebotsabgaben; Header-basierter Tokenzugriff auf Einladungsdaten und Angebotseinreichung; Buchungsbestätigungen nur über Header-Token; PENDING-Outbox-Ereignis nach Bestätigung.
+
+**Nicht implementiert:** Übernahme echter TonnEstate-Unternehmensdaten, echtes Selfservice-Onboarding, voll funktionsfähiges Anbieterportal, produktives Login, rechtliches Click-Wrap, E-Mail/n8n-Versand, Auszahlungen, Migrationsschema, ausgerollte Website oder bestätigte wirtschaftliche Transaktion. Mercur ist bewusst als möglicher Donor evaluiert, nicht eingebunden.
+
+Technische Einzelheiten: docs/DONOREN_ADOPTION_2026-10-27.md.

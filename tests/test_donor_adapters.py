@@ -109,8 +109,9 @@ def test_quote_header_flow_and_safe_outbox(setup_db):
         "quote_id":qid,"offer_fingerprint":offers[0]["fingerprint"]})
     assert approved.status_code==201
     bid=approved.json()["booking_id"]
-    assert c.post(f"/v1/provider/invitations/{key}/bookings/{bid}/confirm").status_code==200
+    assert c.post(f"/v1/provider/bookings/{bid}/confirm",headers={"X-Invitation-Key":key}).status_code==200
     with Session() as db:
+        assert db.query(OutboxEvent).filter_by(event_type="booking.confirmed").count()==1
         event=db.query(OutboxEvent).filter_by(event_type="booking.confirmed").one()
         assert event.status=="PENDING"
         assert key not in event.payload and "kunde@example.test" not in event.payload

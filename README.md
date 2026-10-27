@@ -11,7 +11,19 @@
 
 ## Implementierung (Core 0.1.0)
 
-**Neu: Es liegt ausführbarer Backend-Prototypcode vor. Es ist noch kein öffentliches oder produktionsreifes Produkt.**
+**Es liegt ein eigenständiger Backend- und Anbieterformular-Prototyp vor. Er ist noch kein produktionsreifes öffentliches Produkt.**
+
+### Donoren-Integration v0.2
+
+- [Donorenentscheidung und tatsächlich adaptierte Funktionen](docs/DONOREN_ADOPTION_2026-10-27.md)
+- [Anbieterformular mit React JSON Schema Form](web/): dynamisch vom Backend bereitgestelltes Angebotsformular.
+- [Quellenbasierter Golden Record](agenqo/company_records.py): Beobachtungen, Quellenfreigabe, Publikation und überprüfte Ownership-Claims (ohne automatische Rechtevergabe).
+- [Entrümpelung als versioniertes Dienstleistungs-Schema](agenqo/service_catalog.py): strukturierte Anforderungen und Angebotsattribute.
+- PENDING-Outbox-Ereignis bei einer bestätigten Buchung, **ohne aktiven Versand**.
+
+**Frontend lokal:** Im Verzeichnis web einmal npm install ausführen, dann npm run dev; FastAPI muss separat auf localhost:8080 laufen. Ein Pilot-Link hat die Form http://127.0.0.1:5173/quote#EINLADUNGS_TOKEN. Token niemals in Logs, Analytics oder Screenshots veröffentlichen. Der Browser sendet ihn an die API im Header X-Invitation-Key. Vite leitet /v1 an das lokale Backend weiter.
+
+**Frontend im Docker-Image:** Das Mehrstufen-Dockerfile baut React und liefert die statische Oberfläche auf /quote aus. Nur intern verwenden; der gesamte Prototyp besitzt noch keine produktionsfähige Identitätsprüfung, Brute-Force-Abwehr, rechtliche Click-Wrap-Freigabe oder Datenbankmigrationen.
 
 - [Aktueller Implementierungsstatus und bekannte Lücken](docs/IMPLEMENTIERUNG_STAND.md)
 - `agenqo/domain.py`: Zustandsautomaten, Decimal-Beträge, Angebotsfingerprints und Token-Prüfung.

@@ -99,6 +99,7 @@ class AuditEvent(Base):
 
 class OutboxEvent(Base):
     __tablename__ = "outbox_events"
+    __table_args__ = (UniqueConstraint("event_type","aggregate_id",name="uq_outbox_event_kind"),)
     id = Column(String(36), primary_key=True, default=uid)
     event_type = Column(String(80), nullable=False)
     aggregate_id = Column(String(36), nullable=False)
