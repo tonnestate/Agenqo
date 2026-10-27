@@ -285,8 +285,12 @@ def approve_offer(request_id: str, payload: ApprovalIn,
         raise HTTPException(403, "quote_not_for_request")
     require_valid_offer(quote.status, aware(quote.expires_at),
                         payload.offer_fingerprint, quote_hash(quote))
+    company = db.get(Company, invitation.company_id)
     booking = Booking(request_id=request.id, quote_id=quote.id,
-                      offer_fingerprint=quote.fingerprint)
+                      offer_fingerprint=quote.fingerprint,
+                      commission_agreement_reference=company.commission_agreement_reference,
+                      commission_rate_percent=company.commission_rate_percent,
+                      commission_min_cents=company.commission_min_cents)
     db.add(booking)
     quote.status = move("quote", quote.status, "ACCEPTED", "customer")
     request.status = move("request", request.status, "APPROVAL_PENDING", "customer")
@@ -330,13 +334,13 @@ def complete_booking(booking_id: str, payload: CompletionIn, db: Session = Depen
     request.status = move("request", request.status, "COMPLETED", "admin")
     quote = db.get(Quote, booking.quote_id)
     invitation = db.get(Invitation, quote.invitation_id)
-    company = db.get(Company, invitation.company_id)
     commission = None
-    if company.commission_agreement_reference and company.commission_rate_percent is not None:
+    # Commission terms are frozen at customer approval, never read from mutable company settings.
+    if booking.commission_agreement_reference and booking.commission_rate_percent is not None:
         commission = CommissionEvent(booking_id=booking.id,
-            agreement_reference=company.commission_agreement_reference,
+            agreement_reference=booking.commission_agreement_reference,
             net_cents=commission_cents(quote.net_cents,
-                         company.commission_rate_percent, company.commission_min_cents))
+                         booking.commission_rate_percent, booking.commission_min_cents))
         db.add(commission)
     audit(db, "BOOKING_COMPLETED", booking.id, "admin",
           {"completion_evidence": payload.completion_evidence,

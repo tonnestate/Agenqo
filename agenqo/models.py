@@ -69,6 +69,10 @@ class Booking(Base):
     request_id = Column(String(36), ForeignKey("service_requests.id"), nullable=False, unique=True)
     quote_id = Column(String(36), ForeignKey("quotes.id"), nullable=False, unique=True)
     offer_fingerprint = Column(String(64), nullable=False)
+    # Snapshot of the agreement in force when the customer approved this quote.
+    commission_agreement_reference = Column(String(255))
+    commission_rate_percent = Column(Numeric(5, 2))
+    commission_min_cents = Column(Integer, nullable=False, default=0)
     status = Column(String(32), nullable=False, default="CUSTOMER_APPROVED")
     completion_evidence = Column(Text)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

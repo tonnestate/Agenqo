@@ -7,7 +7,7 @@ import pytest
 
 from agenqo.api import app
 from agenqo.database import get_db
-from agenqo.models import Base, CommissionEvent
+from agenqo.models import Base, CommissionEvent, Company
 
 ADMIN = {"X-Admin-Key": "test-admin-long-secret"}
 
@@ -86,6 +86,12 @@ def test_guards_and_e2e_commission(app_client):
     confirmation = post(client, f"/v1/provider/invitations/{token}/bookings/{booking_id}/confirm",
                         {}, headers={})
     assert confirmation.status_code == 200
+    # An agreement changed after booking must NOT change this booking's commission.
+    with Session() as db:
+        company = db.query(Company).one()
+        company.commission_rate_percent = 20
+        company.commission_agreement_reference = "future-agreement-999"
+        db.commit()
     done = post(client, f"/v1/admin/bookings/{booking_id}/complete",
          {"completion_evidence": "Buyer confirmed work by email, manually checked"})
     assert done.status_code == 200, done.text
@@ -96,7 +102,7 @@ def test_guards_and_e2e_commission(app_client):
         assert db.query(CommissionEvent).count() == 1
 
 def test_no_agreement_no_commission(app_client):
-    client, _ = app_client
+    client, Session = app_client
     request_id, key, token, quote_id = create_flow(client, partner=False)
     offer = client.get(f"/v1/requests/{request_id}/offers",
                        headers={"X-Customer-Key": key}).json()["offers"][0]
@@ -105,6 +111,12 @@ def test_no_agreement_no_commission(app_client):
         headers={"X-Customer-Key": key}).json()
     assert post(client, f"/v1/provider/invitations/{token}/bookings/{booked['booking_id']}/confirm",
                 {}, headers={}).status_code == 200
+    # A retroactively added agreement must not create a commission.
+    with Session() as db:
+        company = db.query(Company).one()
+        company.commission_rate_percent = 8
+        company.commission_agreement_reference = "agreement-after-booking"
+        db.commit()
     done = post(client, f"/v1/admin/bookings/{booked['booking_id']}/complete",
         {"completion_evidence": "Manually verified completed work"})
     assert done.status_code == 200

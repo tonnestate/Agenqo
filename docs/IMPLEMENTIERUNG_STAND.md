@@ -51,3 +51,8 @@ Für Docker Compose zusätzlich `AGENQO_DB_PASSWORD` setzen. API-Port ist auf lo
 6. Buyer-/Provider-Remote-MCP über denselben geprüften Geschäfts-APIs.
 
 **Sicherheitshinweis:** Der Code ist als internes Entwicklungsartefakt gedacht. Keine produktive Vermittlung und kein externer Livebetrieb ohne zusätzliche Sicherheits-, Vertrags- und Datenschutzprüfung.
+
+
+## Finanzielle Verbindlichkeit im Prototyp
+
+Der bei Kundenfreigabe dokumentierte Vermittlungsvertrag einschließlich Provisionssatz und Mindestprovision wird nun als **Buchungssnapshot** gespeichert. Spätere Änderungen des Provider-Profils lösen weder Nachberechnungen noch nachträgliche Provisionsansprüche für die frühere Buchung aus. Dieser Snapshot ersetzt **keinen** rechtsverbindlich unterzeichneten oder anderweitig wirksam angenommenen Vertrag; dessen Beweisführung bleibt ausstehend.
