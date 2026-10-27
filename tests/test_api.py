@@ -91,7 +91,7 @@ def test_guards_and_e2e_commission(app_client):
     assert done.status_code == 200, done.text
     assert done.json()["commission_eligible_cents"] == 10084
     assert post(client, f"/v1/admin/bookings/{booking_id}/complete",
-         {"completion_evidence": "Repeat"}).status_code == 409
+         {"completion_evidence": "Second verified completion attempt"}).status_code == 409
     with Session() as db:
         assert db.query(CommissionEvent).count() == 1
 
