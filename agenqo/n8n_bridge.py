@@ -20,7 +20,21 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .domain import new_token, token_digest
 from .models import OutboxEvent, AutomationReviewTask
-from .api import admin, audit, aware
+from .models import AuditEvent
+
+def admin(x_admin_key: str | None = Header(default=None)) -> None:
+    """Standalone internal admin authentication; no dependency on the API module."""
+    configured = os.getenv("AGENQO_ADMIN_KEY", "")
+    if not configured or not x_admin_key or not hmac.compare_digest(configured, x_admin_key):
+        raise HTTPException(403, "admin_access_denied")
+
+def audit(db: Session, kind: str, reference: str, actor: str,
+          details: dict | None = None) -> None:
+    db.add(AuditEvent(kind=kind, reference_id=reference, actor=actor,
+                      details=json.dumps(details or {}, sort_keys=True, ensure_ascii=False)))
+
+def aware(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
 router = APIRouter(prefix="/v1")
 LEASE_SECONDS = 120
