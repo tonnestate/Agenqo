@@ -1,5 +1,14 @@
 # Agenqo
 
+## Aktueller Konzeptstand v3.0 (27.10.2026)
+
+- **[Agenqo Gesamtkonzept v3.0 – Vermittlungszentrale, B2C/B2B, Anbieter- und Käuferagenten, Kanäle, Geo und Monetarisierung](docs/AGENQO_GESAMTKONZEPT_V3.md)**
+- **[Branchen- und Leistungskatalog v3.0 – 24 Dienstleistungsdomänen](docs/AGENQO_BRANCHENKATALOG_V3.md)**
+- [Agenqo v2.0 – Historischer Konzeptstand](docs/AGENQO_GESAMTKONZEPT.md)
+- [Ursprünglicher MVP- und Validierungsplan – Referenz, bei Widersprüchen gilt v3.0](docs/MVP_UND_VALIDIERUNG.md)
+
+Die v3.0 ist der aktuelle fachliche Soll-Stand. Sie definiert ausdrücklich **ein vollständig eigenständiges Agenqo-Produkt**, keine Laufzeitabhängigkeit von TonnEstate, einen mehrkanaligen RFQ-Marktplatz, regionale Servicegebiete sowie optionalen Buyer- und Provider-MCP. Dokumente sind keine Behauptung bereits implementierter oder rechtlich freigegebener Funktionen.
+
 **Agenqo ist als eigenständige, KI-native Dienstleistungsplattform konzipiert.** Menschen, Unternehmen und bevollmächtigte KI-Agenten sollen dort Dienstleistungen finden, anbieten, vergleichen, verhandeln und verbindlich beauftragen können.
 
 **Status: Konzeptphase.** In diesem Repository liegt zunächst die verbindliche Produktvision und der Umsetzungsplan. Es wird nicht behauptet, dass Marktplatz, MCP-Endpunkte, Buchung, Verhandlung oder Abrechnung bereits implementiert oder produktiv nutzbar sind.
