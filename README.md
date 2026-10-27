@@ -57,3 +57,14 @@ Die Einladungs-API **versendet noch keine externen Nachrichten**; sie stellt nur
 Agenqo besitzt eigene Daten, APIs und Geschäftsregeln. TonnEstate, LemonMe, DragonFruitMe, BlackberryMe und CherryMe sind allenfalls geprüfte Donoren. n8n dient als austauschbare Orchestrierung, nicht als verbindliche Geschäftsführung. Dienstleistungen sind der einzige initiale Markt; Produkte sind ausgeschlossen.
 
 **Wirtschaftliches Ziel:** reale, rechtlich zulässige Auftragsvermittlung mit positivem Deckungsbeitrag – einschließlich Kosten für erfolglose Anfragen.
+
+
+### Provider-Identität und Datenbankmigrationen (v0.3)
+
+**Verifizierbare Anbieteridentität:** OIDC/OAuth-Access-Token als RS256-JWT mit `typ=at+jwt`, validiert über externen vertrauenswürdigen JWKS-Endpunkt (Issuer, Audience, Expiry, Subject). Anbieter-Claims erhalten **keine** Mitgliedschaft vor manueller Admin-Freigabe. Danach können autorisierte Anbieter Änderungen als prüfpflichtige Quellenbeobachtungen vorschlagen. Ein Anbieter kann keine Daten fremder Betriebe ändern.
+
+Erforderliche Server-Konfiguration: `AGENQO_OIDC_ISSUER`, `AGENQO_OIDC_AUDIENCE`, `AGENQO_OIDC_JWKS_URL` (HTTPS). Ohne diese Einstellungen verweigert die Provider-API den Zugriff. **Es ist noch kein Login-/Registrierungsfrontend und kein OIDC-Provider eingerichtet.** Kein selbst ausgestellter JWT-Schlüssel und keine unsichere Dev-Bypass-Rolle.
+
+`alembic upgrade head` erzeugt das gesamte Agenqo-Datenbankschema auf einer **frischen** Datenbank. Für bestehende, durch `create_all` erzeugte lokale DBs ist vor `alembic stamp` eine individuelle Schema-/Versionsprüfung erforderlich. Die Docker-Compose-Entwicklungsumgebung führt Migrationen vor dem API-Start aus. Für produktive Deployments sollte die Migration separat unter Change Control laufen.
+
+Weitere Details: [Provider-Sicherheits-/Migrationsstand](docs/IDENTITY_MIGRATION_V03.md).

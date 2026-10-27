@@ -139,7 +139,20 @@ class CompanyOwnershipClaim(Base):
     id = Column(String(36), primary_key=True, default=uid)
     company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
     claimant_email = Column(String(255), nullable=False)
+    claimant_subject = Column(String(255), nullable=True)
     proof_reference = Column(String(1024), nullable=False)
     review_state = Column(String(20), nullable=False, default="PENDING")
     reviewer_reference = Column(String(255))
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+class CompanyMembership(Base):
+    """Server-side source of truth: OIDC subject has permissions ONLY after verified claim."""
+    __tablename__ = "company_memberships"
+    __table_args__ = (UniqueConstraint("company_id", "subject", name="uq_company_member_subject"),)
+    id = Column(String(36), primary_key=True, default=uid)
+    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    subject = Column(String(255), nullable=False, index=True)
+    role = Column(String(20), nullable=False, default="OWNER")
+    active = Column(Boolean, nullable=False, default=True)
+    verified_claim_id = Column(String(36), ForeignKey("company_ownership_claims.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)

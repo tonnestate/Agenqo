@@ -5,6 +5,20 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agenqo
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: agenqo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agenqo -d agenqo_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      AGENQO_DATABASE_URL: postgresql+psycopg://agenqo:ci_only_password@localhost:5432/agenqo_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -12,6 +26,11 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -e ".[test]"
       - run: pytest
+      - name: Migrate clean PostgreSQL schema
+        run: alembic upgrade head
+      - name: Verify PostgreSQL migration and company membership tables
+        run: |
+          python -c 'from agenqo.database import engine; from sqlalchemy import inspect; assert {"companies","company_memberships","company_observations","bookings","alembic_version"} <= set(inspect(engine).get_table_names())'
   quote-form:
     runs-on: ubuntu-latest
     defaults:

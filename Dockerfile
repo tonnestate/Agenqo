@@ -9,6 +9,8 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY pyproject.toml ./
 COPY agenqo/ agenqo/
+COPY alembic.ini ./
+COPY alembic/ alembic/
 COPY --from=ui /frontend/dist/ /app/web_dist/
 RUN pip install --no-cache-dir .
 RUN useradd -r -u 10001 agenqo

@@ -65,3 +65,14 @@ Umgesetzt: eigenständige Golden-Record-Beobachtungen und Publikationsgates (aus
 **Nicht implementiert:** Übernahme echter TonnEstate-Unternehmensdaten, echtes Selfservice-Onboarding, voll funktionsfähiges Anbieterportal, produktives Login, rechtliches Click-Wrap, E-Mail/n8n-Versand, Auszahlungen, Migrationsschema, ausgerollte Website oder bestätigte wirtschaftliche Transaktion. Mercur ist bewusst als möglicher Donor evaluiert, nicht eingebunden.
 
 Technische Einzelheiten: docs/DONOREN_ADOPTION_2026-10-27.md.
+
+
+## Ergänzung v0.3 – Provider-Identität / Migrationen
+
+- JWT-Resource-Server nach OAuth2: RS256, feste Audience, Issuer, Expiry und `typ=at+jwt`, Signaturprüfung über JWKS. Fail-closed ohne Konfiguration. Kein selbst betriebener Identity Provider.
+- Anbieterbeantragte Ownership Claims mit kryptografisch identifiziertem `sub`; nur Admin-Verifizierung legt Firmenmitgliedschaften an.
+- Firmenmitgliedschaften sind serverseitig, aktiv/deaktivierbar, pro `company_id` isoliert. Mitglieder können nur für eigene Unternehmen vorgeschlagene Quellenbeobachtungen abgeben; Änderungen benötigen weiterhin Admin-Verifikation und Quellenfreigabe.
+- Baseline-Migration mit Alembic, einschließlich bestehender Angebots-/Buchungsdatenmodelle und neuer Provider-Tabelle.
+- CI testet Anspruch/Abweisung, fremde Firmen, fehlerhafte JWTs, SQLite-Migrationen und frisches PostgreSQL-Schema.
+
+**Nicht vorhanden:** Echtbetrieb eines OIDC-Providers, Provider-Login-UI, Passwortwiederherstellung, Benutzer-Management, automatische Firmenverifikation, vollständige Delegation von Mitarbeitern/Agenten, IP-/Token-Rate-Limits, Betrieb/Monitoring, produktive Vertragsprüfung. Nicht öffentlich deployen.

@@ -7,6 +7,7 @@ import json
 import os
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from .auth import require_provider_identity
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -18,7 +19,7 @@ from .domain import (RuleViolation, cents, commission_cents, gross_cents, move,
                      new_token, offer_fingerprint, require_valid_offer, token_digest, token_matches)
 from .models import (Base, Company, ServiceRequest, Invitation, Quote, Booking,
                      CommissionEvent, AuditEvent, OutboxEvent,
-                     CompanyObservation, CompanyGoldenField, CompanyOwnershipClaim)
+                     CompanyObservation, CompanyGoldenField, CompanyOwnershipClaim, CompanyMembership)
 from .company_records import (SOURCES, LICENSE_STATES, normalized_field,
                               observation_fingerprint, publishable)
 from .service_catalog import (public_schema, quote_form_schema, validate_attributes)
@@ -530,11 +531,25 @@ def review_ownership_claim(claim_id: str, payload: OwnershipReviewIn,
         raise RuleViolation("claim_already_reviewed")
     row.review_state="VERIFIED" if payload.approved else "REJECTED"
     row.reviewer_reference=payload.reviewer_reference
-    # Ownership validation is NOT an authentication grant without an IAM provider.
-    audit(db,"OWNERSHIP_CLAIM_REVIEWED",row.id,"admin",{"decision":row.review_state})
+    access_enabled=False
+    if payload.approved and row.claimant_subject:
+        membership=db.query(CompanyMembership).filter_by(
+            company_id=row.company_id, subject=row.claimant_subject).one_or_none()
+        if membership is None:
+            membership=CompanyMembership(company_id=row.company_id,
+                subject=row.claimant_subject, verified_claim_id=row.id,
+                role="OWNER", active=True)
+            db.add(membership)
+        else:
+            # An explicit new verification is required to reactivate disabled members.
+            membership.active=True
+            membership.verified_claim_id=row.id
+        access_enabled=True
+    audit(db,"OWNERSHIP_CLAIM_REVIEWED",row.id,"admin",{
+        "decision":row.review_state,"provider_access_enabled":access_enabled})
     db.commit()
     return {"claim_id":row.id,"review_state":row.review_state,
-            "provider_access_enabled":False}
+            "provider_access_enabled":access_enabled}
 
 @app.get("/v1/admin/companies/{company_id}/golden-record",dependencies=[Depends(admin)])
 def get_golden_record(company_id: str, db: Session = Depends(get_db)):
@@ -558,3 +573,90 @@ def confirm_booking_header(booking_id: str, x_invitation_key: str | None = Heade
     if not x_invitation_key:
         raise HTTPException(403, "invitation_access_denied")
     return confirm_booking(x_invitation_key, booking_id, db)
+
+
+# ---- OIDC authenticated provider self-service; claims still require human review ----
+
+class ProviderClaimRequest(BaseModel):
+    claimant_email: str = Field(min_length=5, max_length=255)
+    proof_reference: str = Field(min_length=8, max_length=1024)
+
+class ProviderProposedUpdate(BaseModel):
+    field_name: str
+    value: str = Field(min_length=1, max_length=255)
+    public_reuse_consent: bool = False
+
+def authorized_membership(db: Session, company_id: str, subject: str):
+    member = db.query(CompanyMembership).filter_by(
+        company_id=company_id, subject=subject, active=True).one_or_none()
+    if member is None or member.role not in {"OWNER", "EDITOR"}:
+        raise HTTPException(403, "not_an_authorized_company_member")
+    return member
+
+@app.post("/v1/provider/companies/{company_id}/claim", status_code=201)
+def provider_claim_company(company_id: str, payload: ProviderClaimRequest,
+                           subject: str = Depends(require_provider_identity),
+                           db: Session = Depends(get_db)):
+    if db.get(Company, company_id) is None:
+        raise HTTPException(404, "company_not_found")
+    if db.query(CompanyMembership).filter_by(
+            company_id=company_id, subject=subject, active=True).first():
+        raise RuleViolation("already_an_authorized_company_member")
+    if db.query(CompanyOwnershipClaim).filter_by(
+            company_id=company_id, claimant_subject=subject,
+            review_state="PENDING").first():
+        raise RuleViolation("ownership_claim_already_pending")
+    row = CompanyOwnershipClaim(company_id=company_id,
+        claimant_subject=subject, claimant_email=payload.claimant_email,
+        proof_reference=payload.proof_reference)
+    db.add(row)
+    db.flush()
+    audit(db, "PROVIDER_CLAIM_SUBMITTED", row.id, "provider",
+          {"company_id": company_id, "subject_digest": token_digest(subject)})
+    db.commit()
+    return {"claim_id": row.id, "review_state": row.review_state,
+            "provider_access_enabled": False}
+
+@app.get("/v1/provider/companies")
+def provider_list_companies(subject: str = Depends(require_provider_identity),
+                            db: Session = Depends(get_db)):
+    memberships = db.query(CompanyMembership).filter_by(
+        subject=subject, active=True).all()
+    records = []
+    for member in memberships:
+        company = db.get(Company, member.company_id)
+        if company is not None:
+            records.append({"company_id":company.id, "legal_name":company.legal_name,
+                            "service_category":company.service_category,
+                            "postal_code":company.postal_code, "role":member.role})
+    return {"companies":records}
+
+@app.post("/v1/provider/companies/{company_id}/proposed-updates", status_code=201)
+def provider_propose_company_update(company_id: str,
+         payload: ProviderProposedUpdate,
+         subject: str = Depends(require_provider_identity),
+         db: Session = Depends(get_db)):
+    authorized_membership(db, company_id, subject)
+    try:
+        value=normalized_field(payload.field_name,payload.value)
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from exc
+    source_ref="oidc-subject-sha256:"+token_digest(subject)
+    fingerprint=observation_fingerprint(field=payload.field_name, value=value,
+        source_kind="PROVIDER_ASSERTION",source_ref=source_ref)
+    existing=db.query(CompanyObservation).filter_by(
+        company_id=company_id,fingerprint=fingerprint).one_or_none()
+    if existing:
+        return {"observation_id":existing.id,"review_state":existing.review_state,
+                "idempotent_replay":True}
+    row=CompanyObservation(company_id=company_id,field_name=payload.field_name,
+        value=value,source_kind="PROVIDER_ASSERTION",source_ref=source_ref,
+        license_state="PUBLIC_REUSE_APPROVED" if payload.public_reuse_consent else "INTERNAL_ONLY",
+        fingerprint=fingerprint)
+    db.add(row);db.flush()
+    audit(db,"PROVIDER_PROFILE_UPDATE_PROPOSED",row.id,"provider",
+          {"company_id":company_id,"subject_digest":token_digest(subject),
+           "public_reuse_consent":payload.public_reuse_consent})
+    db.commit()
+    return {"observation_id":row.id,"review_state":row.review_state,
+            "idempotent_replay":False,"published":False}

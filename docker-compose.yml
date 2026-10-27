@@ -17,9 +17,12 @@ services:
     environment:
       AGENQO_DATABASE_URL: postgresql+psycopg://agenqo:${AGENQO_DB_PASSWORD:?Set AGENQO_DB_PASSWORD}@postgres:5432/agenqo
       AGENQO_ADMIN_KEY: ${AGENQO_ADMIN_KEY:?Set AGENQO_ADMIN_KEY}
-      AGENQO_AUTO_CREATE_SCHEMA: "1"
+      AGENQO_OIDC_ISSUER: ${AGENQO_OIDC_ISSUER:-}
+      AGENQO_OIDC_AUDIENCE: ${AGENQO_OIDC_AUDIENCE:-}
+      AGENQO_OIDC_JWKS_URL: ${AGENQO_OIDC_JWKS_URL:-}
     ports:
       - "127.0.0.1:8080:8080"
+    command: ["/bin/sh", "-c", "alembic upgrade head && exec uvicorn agenqo.api:app --host 0.0.0.0 --port 8080"]
     depends_on:
       postgres:
         condition: service_healthy
