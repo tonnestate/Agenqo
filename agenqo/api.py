@@ -787,5 +787,6 @@ from .n8n_bridge import router as n8n_bridge_router
 app.include_router(n8n_bridge_router)
 
 # Supplier contact authorization is fail-closed; preflight never sends messages.
-from .contact_policy_api import router as contact_policy_router
+from .contact_policy_api import router as contact_policy_router, optout_router as contact_optout_router
 app.include_router(contact_policy_router)
+app.include_router(contact_optout_router)
