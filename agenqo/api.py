@@ -41,7 +41,8 @@ if (_WEB_DIST / "index.html").is_file():
     @app.get("/quote", include_in_schema=False)
     @app.get("/provider", include_in_schema=False)
     @app.get("/provider/callback", include_in_schema=False)
-    def quote_page():
+    @app.get("/request/{request_id}", include_in_schema=False)
+    def quote_page(request_id: str | None = None):
         return FileResponse(_WEB_DIST / "index.html", headers={
             "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
             "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; object-src 'none'"})
@@ -292,6 +293,21 @@ def validate_quote(quote_id: str, db: Session = Depends(get_db)):
     audit(db, "QUOTE_VALIDATED", quote.id, "admin", {"fingerprint": quote.fingerprint})
     db.commit()
     return {"quote_id": quote.id, "status": quote.status}
+
+
+@app.get("/v1/requests/{request_id}/status")
+def buyer_request_status(request_id: str, x_customer_key: str | None = Header(default=None),
+                         db: Session = Depends(get_db)):
+    """Tenant-scoped buyer summary. Never reveal customer addresses or access tokens."""
+    request = customer_request(db, request_id, x_customer_key)
+    booking = db.query(Booking).filter_by(request_id=request_id).one_or_none()
+    return {"request_id": request.id, "category": request.category,
+            "postal_code": request.postal_code,
+            "requirements": request.requirements,
+            "structured_requirements": json.loads(request.structured_requirements_json or "{}"),
+            "status": request.status,
+            "booking_status": booking.status if booking else None,
+            "booking_id": booking.id if booking else None}
 
 
 @app.get("/v1/requests/{request_id}/offers")
