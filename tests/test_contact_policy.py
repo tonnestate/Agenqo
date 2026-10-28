@@ -119,12 +119,18 @@ def test_deny_opt_in_allow_revoke_deny_and_decision_history(client_and_session):
     third = preflight(client, invite)
     assert third.json()["decision"] == "DENY"
     assert third.json()["reason_code"] == "OPTED_OUT"
+    reused = permission(client, cid, True, "SIGNED_PILOT_AGREEMENT", "signed-by-provider-2026")
+    assert reused.status_code == 409
+    # An explicit *new* verified agreement is required to reactivate after opt-out.
+    renewed = permission(client, cid, True, "SIGNED_PILOT_AGREEMENT", "renewed-after-optout-2026")
+    assert renewed.status_code == 201, renewed.text
+    assert preflight(client, invite).json()["decision"] == "ALLOW"
     history = client.get(
         f"/v1/admin/invitations/{invite}/contact-decisions", headers=ADMIN,
     )
     assert history.status_code == 200
     assert sorted(d["decision"] for d in history.json()["decisions"]) == [
-        "ALLOW", "DENY", "DENY"
+        "ALLOW", "ALLOW", "DENY", "DENY"
     ]
     with Session() as db:
         versions = (
@@ -132,8 +138,8 @@ def test_deny_opt_in_allow_revoke_deny_and_decision_history(client_and_session):
             .filter_by(company_id=cid)
             .order_by(ProviderContactPermission.revision).all()
         )
-        assert [v.enabled for v in versions] == [True, False]
-        assert db.query(ContactPolicyDecision).count() == 3
+        assert [v.enabled for v in versions] == [True, False, True]
+        assert db.query(ContactPolicyDecision).count() == 4
         # Contact decisions never generate a delivery outbox event.
         assert all(
             row.event_type == "invitation.review_requested"
