@@ -39,3 +39,8 @@ button:disabled{opacity:.55}.error{padding:15px;background:#fee8e8;color:#850e0e
 .buyer-choice input{width:auto;flex-shrink:0;margin-top:6px}
 .buyer-confirm{background:#f3f8fa}
 .buyer-confirm button{margin-top:14px}
+
+.optout-section{border-top:1px solid #d5e0e9;margin-top:20px}
+.optout-section h2{font-size:18px}
+.optout-button{background:#e8edf2;color:#18394b;margin-top:4px}
+.optout-button:hover{background:#d8e3eb}
