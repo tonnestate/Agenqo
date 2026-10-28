@@ -5,13 +5,14 @@
 ## Fachlicher Stand (v3.0)
 
 - [Führendes Agenqo-Gesamtkonzept v3.0](docs/AGENQO_GESAMTKONZEPT_V3.md)
+- [P0-Ausführungsvertrag v3.0 – Vermittlungszentrale, Pilot-Gates und Abnahmen](docs/AGENQO_V3_P0_EXECUTION_CONTRACT.md)
 - [Branchen- und Leistungskatalog v3.0](docs/AGENQO_BRANCHENKATALOG_V3.md)
 - [Konzept v2.0 – historischer Stand](docs/AGENQO_GESAMTKONZEPT.md)
 - [Älterer MVP-Plan – bei Widersprüchen gilt v3](docs/MVP_UND_VALIDIERUNG.md)
 
-## Implementierung (Core 0.1.0)
+## Implementierung (aktueller Entwicklungsstand v0.7; Python-Paketversion 0.5.0)
 
-**Es liegt ein eigenständiger Backend- und Anbieterformular-Prototyp vor. Er ist noch kein produktionsreifes öffentliches Produkt.**
+**Es liegen ein eigenständiger Backend-/Provider-Portal-Prototyp, MySQL/Alembic-Migrationen, RFQ-Wirtschaftlichkeitsjournal und eine interne n8n-Outbox-Brücke vor. Nicht nachgewiesen sind Live-Kontaktversand, ein vollständiges Käufer-Frontend, reale Vermittlungsumsätze oder ein öffentlich freigegebener Betrieb.**
 
 ### Donoren-Integration v0.2
 
@@ -23,7 +24,7 @@
 
 **Frontend lokal:** Im Verzeichnis web einmal npm install ausführen, dann npm run dev; FastAPI muss separat auf localhost:8080 laufen. Ein Pilot-Link hat die Form http://127.0.0.1:5173/quote#EINLADUNGS_TOKEN. Token niemals in Logs, Analytics oder Screenshots veröffentlichen. Der Browser sendet ihn an die API im Header X-Invitation-Key. Vite leitet /v1 an das lokale Backend weiter.
 
-**Frontend im Docker-Image:** Das Mehrstufen-Dockerfile baut React und liefert die statische Oberfläche auf /quote aus. Nur intern verwenden; der gesamte Prototyp besitzt noch keine produktionsfähige Identitätsprüfung, Brute-Force-Abwehr, rechtliche Click-Wrap-Freigabe oder Datenbankmigrationen.
+**Frontend im Docker-Image:** Das Mehrstufen-Dockerfile baut React und liefert die statische Oberfläche auf /quote aus. Nur intern verwenden; OIDC-Prüfpfade und Alembic-Migrationen sind als Code vorhanden, aber produktive Provider-Konfiguration, Abuse-Schutz, rechtliche Click-Wrap-Freigabe und externe Zustellung sind nicht nachgewiesen.
 
 - [Aktueller Implementierungsstatus und bekannte Lücken](docs/IMPLEMENTIERUNG_STAND.md)
 - `agenqo/domain.py`: Zustandsautomaten, Decimal-Beträge, Angebotsfingerprints und Token-Prüfung.
@@ -48,7 +49,7 @@ Für Docker Compose sind `AGENQO_DATABASE_URL` (vorhandenes MySQL) und `AGENQO_A
 
 ### Sicherheit und Scope
 
-Die Einladungs-API **versendet noch keine externen Nachrichten**; sie stellt nur manuell zu übermittelnde, zeitlich begrenzte Tokens bereit. Es gibt noch keine produktionsfähige Anbieteridentitätsprüfung, Click-Wrap-Vertragsvorlage, Migrationsverwaltung, Rechnungsstellung, n8n-Sendestrecke, Website oder MCP-Integration.
+Die Einladungs-API **versendet noch keine externen Nachrichten**; sie stellt nur manuell zu übermittelnde, zeitlich begrenzte Tokens bereit. OIDC-Providerprüfung, Anbieterportal und Migrationen sind als Code vorhanden; nicht nachgewiesen sind produktive OIDC-Inbetriebnahme, rechtsgeprüfter Click-Wrap, Rechnungsversand, externe n8n-Sendestrecke, vollwertige Käuferseite oder MCP-Integration.
 
 **Nicht öffentlich deployen, bevor Rechtsprüfung, Authentifizierung, Abuse-Schutz, Schema-Migrationen, Token-Lifecycle und Datenrechtsprüfung abgeschlossen sind.**
 
