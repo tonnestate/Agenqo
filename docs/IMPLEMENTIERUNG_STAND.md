@@ -1,23 +1,24 @@
-# Implementierungsstand Agenqo – aktueller Snapshot v0.7 (28.10.2026)
+# Implementierungsstand Agenqo – aktueller Snapshot v0.8 (28.10.2026)
 
-**Status:** technisch fortgeschrittener Pilotkern, **kein produktiver Marktplatz und kein nachgewiesener Live-Umsatz**. Die Bezeichnung v0.7 beschreibt die zuletzt ergänzte n8n-Brücke; die Paketversionsnummer in pyproject.toml ist derzeit 0.5.0. Technische Versionsstände sind keine Produktreifegrade.
+**Status:** technisch fortgeschrittener Pilotkern, **kein produktiver Marktplatz und kein nachgewiesener Live-Umsatz**. Die Bezeichnung v0.8 beschreibt die neu hinzugefügte Kontakt-Policy und Käuferansicht; die Paketversionsnummer in pyproject.toml ist derzeit 0.5.0. Technische Versionsstände sind keine Produktreifegrade.
 
 ## Was aktuell im Repository liegt
 
 - Python/FastAPI, SQLAlchemy, **MySQL/InnoDB** als verbindliche Transaktionsdatenbank, Alembic-Migrationen 0001–0003, optionales eingebettetes DuckDB für Analytik. PostgreSQL ist **nicht** Bestandteil des aktuellen Soll-Deployments.
 - Zustandsautomaten, Angebotshashes, Betragslogik, Pilot-APIs, Provider-Portal mit OIDC-Validierung, Golden-Record-Beobachtungen/Claims, Service-Schema für Entrümpelung, Kosten- und Erlösjournal pro RFQ einschließlich Fehlfällen.
 - Interne v0.7-n8n-Brücke mit MySQL-Outbox, Lease, Retry/Dead Letter und importierbarem **inaktivem** Workflow. Keine externen Mails/SMS, keine produktiven n8n-Credentials und kein Liveversand nachgewiesen.
-- GitHub-Actions-Testkonfiguration für MySQL-Migrationen und Konkurrenztests; eine aktuelle CI-Laufzeitprüfung und reale Deploymentabnahme sind gesondert zu belegen.
+- **Neu in v0.8:** append-only Kontaktzustimmungen und Opt-outs mit manueller Nachweisreferenz, auditierte fail-closed Einladungs-Vorprüfung, Selbst-Widerruf per Anbieter-Token; Käuferstatus-API und React-Angebotsvergleich mit exakt gebundener Freigabe. Tests und neue Alembic-Migration 0004 im Repository.
+- GitHub-Actions-Testkonfiguration für MySQL-Migrationen, Konkurrenztests, API- und Frontend-Build; CI-Ergebnisse pro Commit kontrollieren, sie sind kein Nachweis einer realen Deploymentabnahme.
 
 ## Was aktuell nicht als fertig oder produktiv gelten darf
 
-- Vollständiges selbstständiges B2C-/B2B-Käufer-Frontend mit Intake, Angebotsvergleich, autorisierter Freigabe und Status.
-- Rechtsgeprüfte kanalbezogene Contact-Policy und automatisierte externe Zustellung; produktiver Kunden-/Anbieter-Outreach.
+- Vollständiges selbstständiges B2C-/B2B-Käufer-Frontend mit öffentlichem, abuse-geschütztem Intake; eine geschützte Ansicht für **bereits angelegte** Anfragen einschließlich Vergleich, Freigabe und Status ist seit v0.8 vorhanden.
+- **Rechtsgeprüfte** kanalbezogene Outreach-Regeln und sichere tatsächliche Zustellung; die v0.8-Policy implementiert zunächst ausschließlich dokumentiertes Anbieter-Opt-in, Widerruf und Versandvorprüfung, aber keinen Livekontakt.
 - Vollständige Quote-Revisionen, Storno-/Dispute-/Completion-Belege, rechtswirksamer Provisionsvertrag samt Rechnung/Zahlung.
 - Ausgereifte Matching-Engine mit ServiceArea/Fahrzeit/Kapazität, weitere buchbare Kategorien, externe Agenten-MCPs.
 - Reale, bezahlte Vermittlungskohorten und positiver RFQ-Deckungsbeitrag; verbindlicher rechtlicher Live-Check.
 
-**Verbindliche nächste Schritte:** [Agenqo v3 P0-Ausführungsvertrag](AGENQO_V3_P0_EXECUTION_CONTRACT.md). **Datenbankentscheidung:** [MySQL + DuckDB](DATENBANK_DONOREN_MYSQL_DUCKDB.md). **Führendes Zielbild:** [v3.0](AGENQO_GESAMTKONZEPT_V3.md).
+**Neu v0.8:** [Kontakt-Policy und Käufer-Pilotportal](CONTACT_POLICY_AND_BUYER_PILOT_V08.md). **Verbindliche nächste Schritte:** [Agenqo v3 P0-Ausführungsvertrag](AGENQO_V3_P0_EXECUTION_CONTRACT.md). **Datenbankentscheidung:** [MySQL + DuckDB](DATENBANK_DONOREN_MYSQL_DUCKDB.md). **Führendes Zielbild:** [v3.0](AGENQO_GESAMTKONZEPT_V3.md).
 
 ---
 
