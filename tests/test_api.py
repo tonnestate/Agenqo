@@ -143,3 +143,49 @@ def test_provider_isolation_and_quote_auth(app_client):
         {"description": "unallowed repeat", "price_net_eur": "10",
          "expires_at": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()},
         headers={"X-Invitation-Key": token}).status_code == 409
+
+
+
+def test_buyer_status_requires_own_token_and_never_exposes_email(app_client):
+    client, _ = app_client
+    request_id, key, token, quote_id = create_flow(client)
+    endpoint = f"/v1/requests/{request_id}/status"
+    assert client.get(endpoint).status_code == 403
+    assert client.get(endpoint, headers={"X-Customer-Key": "wrong"}).status_code == 403
+    status = client.get(endpoint, headers={"X-Customer-Key": key})
+    assert status.status_code == 200, status.text
+    data = status.json()
+    assert data["request_id"] == request_id
+    assert data["status"] == "QUOTES_READY"
+    assert data["category"] == "entruempelung"
+    assert data["booking_status"] is None
+    assert "buyer@example.test" not in status.text
+    assert "customer_token" not in status.text
+    assert "offer" not in status.text
+    offers = client.get(
+        f"/v1/requests/{request_id}/offers", headers={"X-Customer-Key": key}
+    ).json()["offers"]
+    booking = post(
+        client, f"/v1/requests/{request_id}/approve",
+        {"quote_id": quote_id, "offer_fingerprint": offers[0]["fingerprint"]},
+        headers={"X-Customer-Key": key},
+    )
+    assert booking.status_code == 201, booking.text
+    after = client.get(endpoint, headers={"X-Customer-Key": key}).json()
+    assert after["status"] == "APPROVAL_PENDING"
+    assert after["booking_status"] == "CUSTOMER_APPROVED"
+    assert after["booking_id"] == booking.json()["booking_id"]
+
+
+def test_buyers_cannot_read_other_buyers_requests(app_client):
+    client, _ = app_client
+    rid_a, key_a, _, _ = create_flow(client)
+    rid_b, key_b, _, _ = create_flow(client)
+    assert client.get(
+        f"/v1/requests/{rid_b}/status",
+        headers={"X-Customer-Key": key_a},
+    ).status_code == 403
+    assert client.get(
+        f"/v1/requests/{rid_a}/offers",
+        headers={"X-Customer-Key": key_b},
+    ).status_code == 403
