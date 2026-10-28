@@ -186,3 +186,39 @@ class RequestEconomicEvent(Base):
     amount_cents = Column(Integer, nullable=False)
     evidence_reference = Column(String(1024), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class ProviderContactPermission(Base):
+    """Append-only channel-specific opt-in/opt-out evidence, not a company claim."""
+    __tablename__ = "provider_contact_permissions"
+    __table_args__ = (
+        UniqueConstraint("company_id", "channel", "purpose", "revision",
+                         name="uq_contact_permission_revision"),
+    )
+    id = Column(String(36), primary_key=True, default=uid)
+    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False, index=True)
+    channel = Column(String(16), nullable=False)
+    purpose = Column(String(40), nullable=False)
+    revision = Column(Integer, nullable=False)
+    enabled = Column(Boolean, nullable=False)
+    destination_hash = Column(String(64), nullable=False)
+    evidence_kind = Column(String(40), nullable=False)
+    evidence_reference = Column(String(1024), nullable=False)
+    reviewer_reference = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class ContactPolicyDecision(Base):
+    """Immutable per-attempt policy assessment. No delivery is implied."""
+    __tablename__ = "contact_policy_decisions"
+    id = Column(String(36), primary_key=True, default=uid)
+    invitation_id = Column(String(36), ForeignKey("invitations.id"), nullable=False, index=True)
+    request_id = Column(String(36), ForeignKey("service_requests.id"), nullable=False)
+    company_id = Column(String(36), ForeignKey("companies.id"), nullable=False)
+    permission_id = Column(String(36), ForeignKey("provider_contact_permissions.id"))
+    channel = Column(String(16), nullable=False)
+    purpose = Column(String(40), nullable=False)
+    policy_version = Column(String(50), nullable=False)
+    decision = Column(String(10), nullable=False)
+    reason_code = Column(String(48), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
