@@ -34,7 +34,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Agenqo Concierge Core", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Agenqo Concierge Core", version="0.8.0", lifespan=lifespan)
 _WEB_DIST = Path(__file__).resolve().parent.parent / "web_dist"
 if (_WEB_DIST / "index.html").is_file():
     app.mount("/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="quote-form-assets")
