@@ -3,7 +3,7 @@
 **Stand:** 27. Oktober 2026  
 **Produkt:** Agenqo – eigenständiger KI-nativer Dienstleistungsmarktplatz  
 **Status:** Sollkonzept und umsetzungsfähige Spezifikation, noch kein Produktivnachweis  
-**Vorgänger:** [Agenqo v2.0](AGENQO_GESAMTKONZEPT.md) · **Branchen:** [Leistungskatalog v3.0](AGENQO_BRANCHENKATALOG_V3.md)
+**Vorgänger:** [Agenqo v2.0](AGENQO_GESAMTKONZEPT.md) · **Branchen:** [Leistungskatalog v3.0](AGENQO_BRANCHENKATALOG_V3.md) · **Verbindlicher P0-Ausführungsvertrag:** [Pilot- und Vermittlungszentrale](AGENQO_V3_P0_EXECUTION_CONTRACT.md)
 
 ## 0. Verbindliche Leitentscheidungen
 
@@ -112,7 +112,7 @@ Die geografische Matching-Engine muss zwischen **Firmensitz**, **operativem Stan
 ### Stufenmodell
 
 1. **Normierte Geokoordinaten:** Ortsadresse/PLZ mit Quellen- und Genauigkeitsstufe. Für Kundenadressen im öffentlichen Kontext initial PLZ/Gebiet, genaue Anschrift nur bei berechtigtem Bedarf.
-2. **Grobe Suchmenge:** PostGIS räumlicher Index und geometrische Distanz (Haversine/ST_DWithin) als günstiger Vorfilter, nicht als behauptete Fahrstrecke.
+2. **Grobe Suchmenge:** MySQL-Spatialindex, PLZ-/Gebietsindex oder geprüfte geographische Distanzberechnung als günstiger Vorfilter, nicht als behauptete Fahrstrecke.
 3. **Service Area Policy:** Anbieter definiert nicht nur Radius, sondern ggf. einzelne PLZ-Listen, Polygone, Länder, Depotstandorte, mobile Einsätze, Start-/Endorte und Ausschlüsse.
 4. **Routen-/Fahrzeitprüfung:** Nur qualifizierte Kandidaten über OSRM/OpenRouteService/Google Routes Matrix o. Ä. prüfen; Rückgabe unterscheidet Straßendistanz, Reisezeit, Maut und Routing-Confidence. Anbieter kann Reisezeitgrenzen sowie Mindestauftrag und Anfahrtszuschlag angeben.
 5. **Zeit/Kapazität:** Slot, Schicht, Anfahrt und bestehende Terminbindung prüfen. Ohne aktuelle Kalender-/Agentenantwort nur „Anfrage möglich“ ausgeben, nicht „frei“.
@@ -214,7 +214,7 @@ Für erste Budgetplanung als **Prüfhypothese**: gemeinsamer Server/MCP-Betrieb 
 
 ## 13. Rolle von n8n und technologischer Umsetzungsstack
 
-**Backend:** eigenständige Python/FastAPI-API und deterministische Domänenmodelle; **Datenhaltung:** PostgreSQL + PostGIS (räumliche Suche), versionierte Migrationen. **Frontend:** eigene responsive SEO-fähige Webanwendung für Käufer, Anbieter und Backoffice. **Agent Runtime:** austauschbarer Modellrouter (nicht auf einen einzigen Provider und nicht auf „FREE_ONLY“ festlegen); LLM für Intake, Parsing, Erklärung und Entwürfe, niemals allein für Rechtsverbindlichkeit. **n8n:** Benachrichtigungen, E-Mail- und Webhook-Zustellung, Wartezustände, Wiederholung, Kanaladapters, Monitoring.
+**Backend:** eigenständige Python/FastAPI-API und deterministische Domänenmodelle; **Datenhaltung:** bestehendes **MySQL/InnoDB** als transaktionaler System-of-Record (SQLAlchemy/Alembic); **DuckDB** optional eingebettet für Analytik; Geografie via MySQL-Spatialfunktionen und ggf. geprüfter Routing-/Geocoding-Dienst. Keine PostgreSQL-/PostGIS-Neueinführung ohne explizite ADR. Maßgeblich ist [die aktuelle Datenbankentscheidung](DATENBANK_DONOREN_MYSQL_DUCKDB.md). **Frontend:** eigene responsive SEO-fähige Webanwendung für Käufer, Anbieter und Backoffice. **Agent Runtime:** austauschbarer Modellrouter (nicht auf einen einzigen Provider und nicht auf „FREE_ONLY“ festlegen); LLM für Intake, Parsing, Erklärung und Entwürfe, niemals allein für Rechtsverbindlichkeit. **n8n:** Benachrichtigungen, E-Mail- und Webhook-Zustellung, Wartezustände, Wiederholung, Kanaladapters, Monitoring.
 
 Ereignisse: \`PROJECT_CREATED\`, \`PACKAGE_QUALIFIED\`, \`RFQ_PUBLISHED\`, \`INVITATION_APPROVED\`, \`INVITATION_SENT\`, \`QUOTE_RECEIVED\`, \`OFFER_NORMALIZED\`, \`NEGOTIATION_STARTED\`, \`OFFER_APPROVED\`, \`BOOKING_CONFIRMED\`, \`WORK_COMPLETED\`, \`DISPUTE_OPENED\`, \`COMMISSION_ELIGIBLE\`.
 
@@ -317,7 +317,7 @@ Vollständiger, gepflegter Servicekatalog mit weiteren Branchen; Anbieter-Agent-
 
 ## 18. Umsetzbare Entwickler-Tickets
 
-1. Eigenständiges Repo/CI, Container, PostgreSQL + PostGIS, API-Auth/Organisationen; keine TonnEstate-Referenz zur Laufzeit.
+1. Eigenständiges Repo/CI, Container mit der vorhandenen MySQL/InnoDB-Instanz (DuckDB optional eingebettet), API-Auth/Organisationen; keine TonnEstate-Referenz zur Laufzeit. Für P0 und Abnahmen gilt der [Ausführungsvertrag](AGENQO_V3_P0_EXECUTION_CONTRACT.md).
 2. Golden Company Minimum + Contact Policy + Source Metadata + verifizierter Anbieter-Claim.
 3. Versionierter branchenübergreifender Servicekatalog, ServiceArea-Typen und Regionalmatching mit Routenprüfung.
 4. Projekt, WorkPackage, Request, RFQ, Public/Targeted Invitation und kanalunabhängige Rücklaufzuordnung.
