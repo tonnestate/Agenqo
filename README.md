@@ -6,13 +6,14 @@
 
 - [Führendes Agenqo-Gesamtkonzept v3.0](docs/AGENQO_GESAMTKONZEPT_V3.md)
 - [P0-Ausführungsvertrag v3.0 – Vermittlungszentrale, Pilot-Gates und Abnahmen](docs/AGENQO_V3_P0_EXECUTION_CONTRACT.md)
+- [Implementierung v0.8: Kontakt-Policy und Käufer-Pilotportal](docs/CONTACT_POLICY_AND_BUYER_PILOT_V08.md)
 - [Branchen- und Leistungskatalog v3.0](docs/AGENQO_BRANCHENKATALOG_V3.md)
 - [Konzept v2.0 – historischer Stand](docs/AGENQO_GESAMTKONZEPT.md)
 - [Älterer MVP-Plan – bei Widersprüchen gilt v3](docs/MVP_UND_VALIDIERUNG.md)
 
-## Implementierung (aktueller Entwicklungsstand v0.7; Python-Paketversion 0.5.0)
+## Implementierung (aktueller Entwicklungsstand v0.8; Python-Paketversion 0.5.0)
 
-**Es liegen ein eigenständiger Backend-/Provider-Portal-Prototyp, MySQL/Alembic-Migrationen, RFQ-Wirtschaftlichkeitsjournal und eine interne n8n-Outbox-Brücke vor. Nicht nachgewiesen sind Live-Kontaktversand, ein vollständiges Käufer-Frontend, reale Vermittlungsumsätze oder ein öffentlich freigegebener Betrieb.**
+**Es liegen ein eigenständiger Backend-/Provider-Portal-Prototyp, eine persönliche Käufer-RFQ-Ansicht mit Angebotsfreigabe, MySQL/Alembic-Migrationen, ein versioniertes Kontaktfreigabe-Journal, RFQ-Wirtschaftlichkeitsmessung und eine interne n8n-Outbox-Brücke vor. Nicht nachgewiesen sind Live-Kontaktversand, öffentliches Buyer-Self-Service-Onboarding, reale Vermittlungsumsätze oder ein öffentlich freigegebener Betrieb.**
 
 ### Donoren-Integration v0.2
 
@@ -105,3 +106,13 @@ Lokale Tests: `pip install -e ".[test]"` und `pytest`. Für den echten API-Start
 - Bei bestätigter Verarbeitung entsteht eine **interne** Aufgabe in `automation_review_tasks`. Es gibt **keinen automatischen E-Mail-, SMS-, WhatsApp-, Zahlungs- oder Anbieterkommunikationsversand**.
 - Der Admin kann unter `/v1/admin/automation/status` und `/v1/admin/automation/review-tasks` Zustand und offene Aufgaben sehen.
 - Es wurden keine produktiven n8n-Credentials eingerichtet oder bestehende n8n-Workflows modifiziert.
+
+
+### Kontakt-Policy und Buyer-Pilotportal (v0.8)
+
+- [Implementierungs-, Sicherheits- und Pilothinweise](docs/CONTACT_POLICY_AND_BUYER_PILOT_V08.md).
+- `alembic upgrade head` führt jetzt auch Migration `0004_contact_policy` für versionierte, nachweisbezogene RFQ-Opt-ins/Opt-outs und auditierte Versandvorprüfungen aus.
+- Admin-API: `POST /v1/admin/companies/{company_id}/contact-permissions`; `POST /v1/admin/invitations/{invitation_id}/contact-preflight`. Standardmäßig `DENY`. Keine automatische Zustellung und kein pauschales Recht zum Kaltversand.
+- Anbieter können mittels `POST /v1/provider/contact/opt-out` und individuellem `X-Invitation-Key` ihre RFQ-E-Mail-Berechtigung widerrufen, auch nach Ablauf der Einladungsfrist.
+- Käufer erhalten über `/request/{request_id}#<customer_token>` eine persönliche, React-basierte Status-/Angebots-/Freigabeansicht. Der Link muss vom Operator auf zulässigem, sicherem Weg übermittelt werden. Keine öffentliche RFQ-Erstellung.
+- FastAPI-API- und Frontend-Tests werden durch die bestehende CI abgedeckt; produktiver Betrieb und Live-Mails sind nicht freigegeben.
