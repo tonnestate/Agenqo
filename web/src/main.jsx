@@ -16,6 +16,8 @@ function QuoteForm() {
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [optoutBusy, setOptoutBusy] = useState(false);
+  const [optedOut, setOptedOut] = useState(false);
 
   useEffect(() => {
     if (!token) { setError("Angebotslink fehlt."); return; }
@@ -28,6 +30,20 @@ function QuoteForm() {
       setSchema(await form.json());
     }).catch(e => setError(e.message));
   }, [token]);
+
+  async function optOut() {
+    if (!token || optedOut) return;
+    setOptoutBusy(true); setError("");
+    try {
+      const response = await fetch("/v1/provider/contact/opt-out", {
+        method: "POST", cache: "no-store",
+        headers: {"X-Invitation-Key": token},
+      });
+      if (!response.ok) throw Error("Abmeldung konnte nicht verarbeitet werden.");
+      setOptedOut(true);
+    } catch (e) { setError(String(e.message || e)); }
+    finally { setOptoutBusy(false); }
+  }
 
   async function submit({formData}) {
     setBusy(true); setError("");
@@ -66,6 +82,18 @@ function QuoteForm() {
       <p className="note">Der Anbieter bestätigt hier ausschließlich seine Angebotskonditionen. Ein Auftrag entsteht erst nach dem vorgesehenen Freigabe- und Bestätigungsprozess. Dieses Formular ist ein Pilotprototyp.</p>
     </section>}
     {!sent && !error && (!context || !schema) && <p>Anfrage wird geladen…</p>}
+    {token && <section className="optout-section">
+      <h2>Weitere Einladungen</h2>
+      {optedOut ? <p className="success" role="status">
+        Abmeldung gespeichert. Für diesen E-Mail-Kanal werden keine weiteren RFQ-Einladungen freigegeben.
+      </p> : <>
+        <p className="note">Sie möchten keine weiteren Angebotsanfragen per E-Mail erhalten?
+          Die Abmeldung erfordert kein Benutzerkonto und gilt auch nach Ablauf dieses Angebotslinks.</p>
+        <button type="button" className="optout-button" onClick={optOut} disabled={optoutBusy}>
+          {optoutBusy ? "Abmeldung wird gespeichert…" : "Weitere E-Mail-Anfragen abbestellen"}
+        </button>
+      </>}
+    </section>}
   </main>;
 }
 
