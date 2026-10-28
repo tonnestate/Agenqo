@@ -4,6 +4,7 @@ import Form from "@rjsf/core";
 import validator from "@rjsf/validator-ajv8";
 import "./style.css";
 import ProviderPortal from "./ProviderPortal.jsx";
+import BuyerPortal from "./BuyerPortal.jsx";
 
 // Link format: /quote#<opaque token>; fragments are not sent as part of HTTP URL.
 // The provider key is sent only in X-Invitation-Key to the Agenqo API.
@@ -69,6 +70,7 @@ function QuoteForm() {
 }
 
 const isProviderPortal = window.location.pathname.startsWith("/provider");
+const isBuyerPortal = window.location.pathname.startsWith("/request/");
 createRoot(document.getElementById("root")).render(
-  isProviderPortal ? <ProviderPortal/> : <QuoteForm/>
+  isProviderPortal ? <ProviderPortal/> : (isBuyerPortal ? <BuyerPortal/> : <QuoteForm/>)
 );
