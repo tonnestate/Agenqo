@@ -11,7 +11,7 @@
 - [Konzept v2.0 – historischer Stand](docs/AGENQO_GESAMTKONZEPT.md)
 - [Älterer MVP-Plan – bei Widersprüchen gilt v3](docs/MVP_UND_VALIDIERUNG.md)
 
-## Implementierung (aktueller Entwicklungsstand v0.8; Python-Paketversion 0.5.0)
+## Implementierung (aktueller Entwicklungsstand v0.8; Python-Paketversion 0.8.0)
 
 **Es liegen ein eigenständiger Backend-/Provider-Portal-Prototyp, eine persönliche Käufer-RFQ-Ansicht mit Angebotsfreigabe, MySQL/Alembic-Migrationen, ein versioniertes Kontaktfreigabe-Journal, RFQ-Wirtschaftlichkeitsmessung und eine interne n8n-Outbox-Brücke vor. Nicht nachgewiesen sind Live-Kontaktversand, öffentliches Buyer-Self-Service-Onboarding, reale Vermittlungsumsätze oder ein öffentlich freigegebener Betrieb.**
 
