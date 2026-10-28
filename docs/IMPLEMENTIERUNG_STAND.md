@@ -1,6 +1,6 @@
 # Implementierungsstand Agenqo – aktueller Snapshot v0.8 (28.10.2026)
 
-**Status:** technisch fortgeschrittener Pilotkern, **kein produktiver Marktplatz und kein nachgewiesener Live-Umsatz**. Die Bezeichnung v0.8 beschreibt die neu hinzugefügte Kontakt-Policy und Käuferansicht; die Paketversionsnummer in pyproject.toml ist derzeit 0.5.0. Technische Versionsstände sind keine Produktreifegrade.
+**Status:** technisch fortgeschrittener Pilotkern, **kein produktiver Marktplatz und kein nachgewiesener Live-Umsatz**. Die Bezeichnung v0.8 beschreibt die neu hinzugefügte Kontakt-Policy und Käuferansicht; die Python-, API- und Web-Paketversionsnummer ist 0.8.0. Technische Versionsstände sind keine Produktreifegrade.
 
 ## Was aktuell im Repository liegt
 
