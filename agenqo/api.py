@@ -7,7 +7,7 @@ import json
 import os
 from typing import Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from .auth import require_provider_identity
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -296,9 +296,12 @@ def validate_quote(quote_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/v1/requests/{request_id}/status")
-def buyer_request_status(request_id: str, x_customer_key: str | None = Header(default=None),
+def buyer_request_status(request_id: str, response: Response,
+                         x_customer_key: str | None = Header(default=None),
                          db: Session = Depends(get_db)):
     """Tenant-scoped buyer summary. Never reveal customer addresses or access tokens."""
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
     request = customer_request(db, request_id, x_customer_key)
     booking = db.query(Booking).filter_by(request_id=request_id).one_or_none()
     return {"request_id": request.id, "category": request.category,
@@ -311,8 +314,11 @@ def buyer_request_status(request_id: str, x_customer_key: str | None = Header(de
 
 
 @app.get("/v1/requests/{request_id}/offers")
-def list_offers(request_id: str, x_customer_key: str | None = Header(default=None),
+def list_offers(request_id: str, response: Response,
+                x_customer_key: str | None = Header(default=None),
                 db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
     request = customer_request(db, request_id, x_customer_key)
     result = []
     query = (db.query(Quote, Company)
