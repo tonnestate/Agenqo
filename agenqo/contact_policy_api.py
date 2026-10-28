@@ -64,6 +64,16 @@ def update_permission(
         raise HTTPException(422, "opt_out_requires_revocation_evidence")
     previous = latest_permission(db, company_id)
     dest_hash = destination_digest(company.contact_email)
+    # Opt-out revokes the prior proof. Re-activation requires new evidence,
+    # not reusing a signed document that predates the provider's withdrawal.
+    if payload.enabled and previous is not None and not previous.enabled:
+        reused = (db.query(ProviderContactPermission)
+                  .filter_by(company_id=company_id, channel=RFQ_EMAIL,
+                             purpose=RFQ_PURPOSE, enabled=True,
+                             evidence_reference=payload.evidence_reference)
+                  .first())
+        if reused is not None:
+            raise HTTPException(409, "fresh_opt_in_evidence_required_after_opt_out")
     if (
         previous is not None
         and previous.enabled == payload.enabled
@@ -129,7 +139,8 @@ def preflight_invitation(invitation_id: str, db: Session = Depends(get_db)):
     )
     if invitation is None:
         raise HTTPException(404, "invitation_not_found")
-    company = db.get(Company, invitation.company_id)
+    company = (db.query(Company).filter_by(id=invitation.company_id)
+               .with_for_update().populate_existing().one_or_none())
     request = db.get(ServiceRequest, invitation.request_id)
     if not company or not request:
         raise HTTPException(409, "invitation_data_incomplete")
