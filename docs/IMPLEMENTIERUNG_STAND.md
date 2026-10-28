@@ -1,8 +1,33 @@
-# Implementierungsstand – Agenqo Core 0.1.0
+# Implementierungsstand Agenqo – aktueller Snapshot v0.7 (28.10.2026)
 
-**Status:** Erste eigenständige Backend-Implementierung; KEIN Produktionsrelease.
+**Status:** technisch fortgeschrittener Pilotkern, **kein produktiver Marktplatz und kein nachgewiesener Live-Umsatz**. Die Bezeichnung v0.7 beschreibt die zuletzt ergänzte n8n-Brücke; die Paketversionsnummer in pyproject.toml ist derzeit 0.5.0. Technische Versionsstände sind keine Produktreifegrade.
 
-## Tatsächlich implementiert
+## Was aktuell im Repository liegt
+
+- Python/FastAPI, SQLAlchemy, **MySQL/InnoDB** als verbindliche Transaktionsdatenbank, Alembic-Migrationen 0001–0003, optionales eingebettetes DuckDB für Analytik. PostgreSQL ist **nicht** Bestandteil des aktuellen Soll-Deployments.
+- Zustandsautomaten, Angebotshashes, Betragslogik, Pilot-APIs, Provider-Portal mit OIDC-Validierung, Golden-Record-Beobachtungen/Claims, Service-Schema für Entrümpelung, Kosten- und Erlösjournal pro RFQ einschließlich Fehlfällen.
+- Interne v0.7-n8n-Brücke mit MySQL-Outbox, Lease, Retry/Dead Letter und importierbarem **inaktivem** Workflow. Keine externen Mails/SMS, keine produktiven n8n-Credentials und kein Liveversand nachgewiesen.
+- GitHub-Actions-Testkonfiguration für MySQL-Migrationen und Konkurrenztests; eine aktuelle CI-Laufzeitprüfung und reale Deploymentabnahme sind gesondert zu belegen.
+
+## Was aktuell nicht als fertig oder produktiv gelten darf
+
+- Vollständiges selbstständiges B2C-/B2B-Käufer-Frontend mit Intake, Angebotsvergleich, autorisierter Freigabe und Status.
+- Rechtsgeprüfte kanalbezogene Contact-Policy und automatisierte externe Zustellung; produktiver Kunden-/Anbieter-Outreach.
+- Vollständige Quote-Revisionen, Storno-/Dispute-/Completion-Belege, rechtswirksamer Provisionsvertrag samt Rechnung/Zahlung.
+- Ausgereifte Matching-Engine mit ServiceArea/Fahrzeit/Kapazität, weitere buchbare Kategorien, externe Agenten-MCPs.
+- Reale, bezahlte Vermittlungskohorten und positiver RFQ-Deckungsbeitrag; verbindlicher rechtlicher Live-Check.
+
+**Verbindliche nächste Schritte:** [Agenqo v3 P0-Ausführungsvertrag](AGENQO_V3_P0_EXECUTION_CONTRACT.md). **Datenbankentscheidung:** [MySQL + DuckDB](DATENBANK_DONOREN_MYSQL_DUCKDB.md). **Führendes Zielbild:** [v3.0](AGENQO_GESAMTKONZEPT_V3.md).
+
+---
+
+## Historischer Entwicklungsverlauf – Angaben älterer Versionen nicht als Ist-Stand lesen
+
+### Historische Ausgangsversion v0.1.0
+
+**Historische Momentaufnahme:** Erste eigenständige Backend-Implementierung; KEIN Produktionsrelease.
+
+### Damals implementiert (v0.1)
 
 - Python/FastAPI API, SQLAlchemy-Persistenz, PostgreSQL via Docker Compose und SQLite für lokale Tests.
 - Deterministische Zustandsautomaten für Anfrage, Einladung, Angebot, Buchung und Provision.
@@ -15,7 +40,7 @@
 - Manuell belegter Abschluss; Provisionsereignis nur mit vorher referenzierter Vereinbarung.
 - Audit- und Outbox-Tabellen sowie pytest-Tests; GitHub Actions Workflow.
 
-## Noch nicht vorhanden
+### Damals noch nicht vorhanden (v0.1)
 
 - Weder öffentliche Suchwebsite noch Firmen-Claim / selbstständige Unternehmensregistrierung.
 - Keine tatsächliche E-Mail/SMS-Zustellung, kein n8n-Prozess. Invitations bleiben READY; Tokens werden dem Admin nur zur kontrollierten Zustellung ausgegeben.
@@ -27,7 +52,7 @@
 - Kein n8n-Outbox-Worker, kein MCP, keine KI-Verhandlung oder automatische Modellanbindung.
 - Keine echten Aufträge, Gebühreneinnahmen oder bestätigten Marktzahlen.
 
-## Ausführen (rein lokal)
+### Historischer lokaler Start (v0.1)
 
 ```bash
 python -m venv .venv
@@ -41,7 +66,7 @@ pytest
 
 Für Docker Compose zusätzlich `AGENQO_DB_PASSWORD` setzen. API-Port ist auf localhost:8080 gebunden; **keine ungeprüfte öffentliche Exposition**.
 
-## Nächste Integrationsschritte
+### Damals geplante nächste Schritte (v0.1)
 
 1. Versionierte Alembic-Migrationen und PostgreSQL-Integrationstests.
 2. Verifizierte Company Claims, Golden-Record-Provenienz und Provider-Rollen.
