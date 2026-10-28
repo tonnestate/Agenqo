@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from .contact_policy import (
     POLICY_VERSION, RFQ_EMAIL, RFQ_PURPOSE, EVIDENCE_SIGNED,
     destination_digest, evaluate_rfq_email,
 )
+from .domain import token_digest, token_matches
 from .database import get_db
 from .models import (
     Company, ServiceRequest, Invitation,
@@ -185,3 +186,50 @@ def decision_history(invitation_id: str, db: Session = Depends(get_db)):
             for r in records
         ],
     }
+
+
+
+# A supplier may withdraw an RFQ opt-in directly through an invitation token.
+# Opt-out remains available after the quote deadline; an expired invitation
+# must not trap suppliers in a marketing/notification list.
+optout_router = APIRouter(prefix="/v1/provider", tags=["provider-contact-policy"])
+
+
+@optout_router.post("/contact/opt-out")
+def invitation_token_opt_out(
+    x_invitation_key: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if not x_invitation_key or len(x_invitation_key) > 256:
+        raise HTTPException(403, "invitation_access_denied")
+    invitation = (
+        db.query(Invitation).filter_by(token_hash=token_digest(x_invitation_key))
+        .one_or_none()
+    )
+    if invitation is None or not token_matches(x_invitation_key, invitation.token_hash):
+        raise HTTPException(403, "invitation_access_denied")
+    company = (
+        db.query(Company).filter_by(id=invitation.company_id)
+        .with_for_update().populate_existing().one_or_none()
+    )
+    if company is None:
+        raise HTTPException(404, "company_not_found")
+    previous = latest_permission(db, company.id)
+    if previous is not None and not previous.enabled:
+        return {"status": "OPTED_OUT", "idempotent_replay": True}
+    row = ProviderContactPermission(
+        company_id=company.id, channel=RFQ_EMAIL, purpose=RFQ_PURPOSE,
+        revision=(previous.revision + 1 if previous else 1),
+        enabled=False, destination_hash=destination_digest(company.contact_email),
+        evidence_kind="PROVIDER_OPTOUT_REQUEST",
+        evidence_reference="invitation:" + invitation.id,
+        reviewer_reference="SELF_SERVICE_INVITATION_TOKEN",
+    )
+    db.add(row)
+    db.flush()
+    audit(db, "PROVIDER_RFQ_EMAIL_OPT_OUT", row.id, "provider", {
+        "company_id": company.id, "invitation_id": invitation.id,
+        "revision": row.revision,
+    })
+    db.commit()
+    return {"status": "OPTED_OUT", "idempotent_replay": False}
