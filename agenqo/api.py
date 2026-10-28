@@ -785,3 +785,7 @@ app.include_router(provider_portal_router)
 # n8n is the operator-owned orchestration layer, not a second business state machine.
 from .n8n_bridge import router as n8n_bridge_router
 app.include_router(n8n_bridge_router)
+
+# Supplier contact authorization is fail-closed; preflight never sends messages.
+from .contact_policy_api import router as contact_policy_router
+app.include_router(contact_policy_router)
