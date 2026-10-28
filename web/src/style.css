@@ -24,3 +24,18 @@ button:disabled{opacity:.55}.error{padding:15px;background:#fee8e8;color:#850e0e
 .provider-portal button{margin-top:4px}
 .provider-portal details{padding:12px 0}
 .provider-portal article h4{margin-bottom:6px}
+
+/* Buyer portal: the same private RFQ is usable by B2C and B2B purchasers. */
+.buyer-portal{max-width:980px}
+.buyer-portal .portal-toolbar{margin-top:0}
+.buyer-portal .portal-toolbar h1{margin:0}
+.buyer-portal .buyer-secondary{background:#e6ecf0;color:#143a4e;margin:0}
+.buyer-offers{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.buyer-offer{border:1px solid #d5e0e9;border-radius:10px;padding:18px;background:#fcfdff}
+.buyer-offer-heading{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:baseline}
+.buyer-offer-heading h3{font-size:17px;margin:0}
+.buyer-offer-heading strong{white-space:nowrap;font-size:17px}
+.buyer-choice{display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+.buyer-choice input{width:auto;flex-shrink:0;margin-top:6px}
+.buyer-confirm{background:#f3f8fa}
+.buyer-confirm button{margin-top:14px}
